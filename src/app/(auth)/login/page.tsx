@@ -30,14 +30,9 @@ export default function LoginPage() {
       });
 
       if (error) {
-        // If running in development without live Supabase credentials, provide graceful mock login
-        if (
-          error.message.includes("fetch") ||
-          error.message.includes("Invalid API key") ||
-          !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-          process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-        ) {
-          toast.info("Development Mode: Logging into Saucer dashboard with local test profile.");
+        // If credentials are completely unconfigured, allow local preview
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+          toast.info("Development Mode: Logging into Saucer dashboard with local preview.");
           router.push("/app");
           return;
         }
@@ -52,9 +47,8 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (err: any) {
-      // Local fallback
-      toast.info("Entering Saucer dashboard (development fallback mode).");
-      router.push("/app");
+      setErrorMsg(err.message || "Failed to sign in. Please verify your credentials.");
+      toast.error(err.message || "Failed to sign in.");
     } finally {
       setLoading(false);
     }

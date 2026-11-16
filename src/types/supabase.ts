@@ -199,7 +199,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_profile_id: { Args: never; Returns: string }
+      is_org_member: { Args: { org_id: string }; Returns: boolean }
+      is_workspace_member: { Args: { ws_id: string }; Returns: boolean }
     }
     Enums: {
       Role: "OWNER" | "ADMIN" | "MEMBER"

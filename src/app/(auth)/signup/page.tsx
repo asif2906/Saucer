@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowRight, Lock, Mail, User, Building2, Loader2 } from "lucide-react";
+import { ArrowRight, Lock, Mail, User, Building2, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,30 +39,58 @@ export default function SignupPage() {
       });
 
       if (error) {
-        if (
-          error.message.includes("fetch") ||
-          error.message.includes("Invalid API key") ||
-          !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-          process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-        ) {
-          toast.info("Development Mode: Account registered locally. Proceeding to onboarding.");
-          router.push("/onboarding");
-          return;
-        }
         setErrorMsg(error.message);
         toast.error(error.message);
         return;
       }
 
-      toast.success("Account created! Please check your email to verify your registration.");
-      router.push("/onboarding");
+      // If Supabase requires email verification, session is null
+      if (data.user && !data.session) {
+        setEmailVerificationSent(true);
+        toast.success("Confirmation email dispatched! Please verify your inbox.");
+        return;
+      }
+
+      if (data.session) {
+        toast.success("Account created successfully! Welcome to Saucer.");
+        router.push("/app");
+        router.refresh();
+      }
     } catch (err: any) {
-      toast.info("Proceeding to onboarding (development fallback).");
-      router.push("/onboarding");
+      setErrorMsg(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (emailVerificationSent) {
+    return (
+      <Card className="border-border shadow-xl backdrop-blur-sm bg-card/90 text-center p-6">
+        <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 className="w-6 h-6" />
+        </div>
+        <CardTitle className="text-xl font-bold mb-2">Verify your email address</CardTitle>
+        <CardDescription className="mb-6 text-xs leading-relaxed">
+          We&apos;ve sent an activation link to <strong className="text-foreground">{email}</strong>. 
+          Please click the verification link in your email to activate your Saucer account and access your dashboard.
+        </CardDescription>
+        <div className="space-y-3">
+          <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-500 text-white">
+            <Link href="/login">Proceed to Sign In</Link>
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Didn&apos;t receive it? Check your spam folder or return to{" "}
+            <button 
+              onClick={() => setEmailVerificationSent(false)} 
+              className="text-primary underline font-medium hover:text-primary/80"
+            >
+              try another email
+            </button>.
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-border shadow-xl backdrop-blur-sm bg-card/90">

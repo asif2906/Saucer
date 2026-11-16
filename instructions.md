@@ -1,466 +1,150 @@
-# SAUCER — PHASE 1: WEB APPLICATION DEVELOPMENT
+# SAUCER — PHASE 2: REAL BACKEND INTEGRATION
 
-You are now moving from project planning into active software development.
+Phase 1 is complete according to PHASE_1_REPORT.md.
 
-You have already inspected the Postiz source code and generated project documentation.
+We are now moving from frontend development to real backend functionality.
 
-The product we are developing is SAUCER, an AI-powered social media management SaaS.
+Before implementation, inspect the existing Phase 1 codebase and all project documentation.
 
-Your immediate responsibility is to create the first working version of the Saucer web application.
+Do not rebuild the frontend or change the Saucer visual identity.
 
-This is an actual software implementation task, not a design proposal.
+## PRIORITY 1 — SUPABASE
 
-## 1. READ THE EXISTING DOCUMENTATION FIRST
+Implement real Supabase integration.
 
-Before modifying files, read all existing Markdown documentation, especially:
+- Real registration and login.
+- Email verification.
+- Persistent sessions.
+- Password recovery.
+- Protected routes.
+- User profile persistence.
+- Organization creation.
+- Workspace creation.
+- Organization membership.
+- Workspace membership.
+- Role-based authorization.
+- Row Level Security.
 
-- ARCHITECTURE.md
-- DATABASE_SCHEMA.md
-- FEATURE_PARITY_MATRIX.md
-- AI_SYSTEM.md
-- AI_CREDIT_SYSTEM.md
-- AI_PROVIDER_ARCHITECTURE.md
-- AI_QUOTA_MANAGEMENT.md
-- SUBSCRIPTION_SYSTEM.md
-- DEPLOYMENT_GUIDE.md
-- IMPLEMENTATION_ROADMAP.md
-- LICENSING_AND_ATTRIBUTION.md
+Test complete signup-to-dashboard functionality.
 
-Discover the actual filenames if they differ.
+Verify that one user's data cannot be accessed by another user.
 
-Treat the latest approved Saucer decisions as authoritative.
+## PRIORITY 2 — SAUCER AI
 
-Confirmed decisions:
+Implement the actual Gemini API integration.
 
-- Product name: SAUCER.
-- Reference product: Postiz.
-- Target: Broad functional parity with Postiz.
-- Frontend: Next.js.
-- Language: TypeScript.
-- UI: Tailwind CSS and shadcn/ui.
-- Database: Supabase PostgreSQL.
-- ORM: Prisma.
-- Frontend hosting: Vercel.
-- AI provider: Google Gemini API, free tier only initially.
-- Payment provider: Dodo Payments only.
-- File storage: Supabase Storage initially.
-- No Oracle Cloud.
-- No Razorpay.
-- No mandatory BYOK system.
-- No automatic paid AI API fallback.
-- No unapproved paid infrastructure.
+- Use only eligible Google AI Studio free-tier models.
+- Use our server-side GEMINI_API_KEY.
+- Implement a modular AI provider.
+- Implement the global quota controller using persistent shared coordination, not process-local memory.
+- Add RPM, TPM, RPD and concurrency protection.
+- Implement proper 429 handling.
+- Never automatically activate a paid provider.
 
-Do not silently overwrite decisions documented in the approved architecture.
+Implement the actual AI credit system:
 
-If the documentation contains contradictions, record them in DECISIONS_NEEDED.md and explain the impact before proceeding.
+- AiCreditBalance.
+- AiCreditTransaction.
+- Atomic reservations.
+- Idempotent settlement.
+- Automatic refunds.
+- Reservation expiration and recovery.
+- Monthly allowance resets.
+- Audit history.
 
-## 2. CREATE THE SAUCER APPLICATION
+Remove any duplicate authoritative AI balance stored in Profile.
 
-Create a clean, maintainable project structure for Saucer.
+Build and test actual caption generation, rewriting, hashtags, multi-platform adaptation and thread generation.
 
-Use the approved repository structure wherever possible.
+Do not leave simulated AI functionality presented as real AI.
 
-The application should use:
+## PRIORITY 3 — DODO PAYMENTS
 
-- Next.js App Router.
-- React.
-- TypeScript strict mode.
-- Tailwind CSS.
-- shadcn/ui.
-- Lucide icons.
-- Supabase integration.
-- Prisma for server-side relational database access.
-- Zod for validation.
+Integrate Dodo Payments in test mode.
 
-Prefer reusable components, modular code and well-defined application boundaries.
+- Checkout Sessions.
+- Subscription creation.
+- Subscription renewals.
+- Cancellation.
+- Upgrades and downgrades.
+- Webhook validation.
+- Idempotent event processing.
+- Customer Billing Portal.
+- AI credit pack purchases.
 
-Do not create unnecessary microservices.
+Do not grant paid access from checkout redirects.
 
-Do not introduce Docker, Redis, Temporal or Inngest into the frontend application unless the current architecture requires them.
+Only verified server-side events can change subscription entitlements.
 
-Keep long-running publishing workflows separate from the Vercel frontend.
+Razorpay must not be introduced.
 
-## 3. SAUCER BRAND IDENTITY
+## PRIORITY 4 — SOCIAL ACCOUNT INTEGRATIONS
 
-Brand name: Saucer.
+Begin with X and LinkedIn.
 
-Suggested brand presentation:
+- OAuth connection.
+- Secure token storage.
+- Token refresh.
+- Account retrieval.
+- Disconnect functionality.
+- Token expiration handling.
 
-SAUCER.
+Use official APIs and implement actual API requests.
 
-Brand concept:
-A centralized orbit for social media management.
+Clearly document which provider developer credentials and approval permissions are required.
 
-Create an original visual identity.
+Do not simulate a successful account connection.
 
-Design direction:
+## PRIORITY 5 — PUBLISHING ENGINE
 
-- Premium SaaS.
-- Minimal and modern.
-- Professional.
-- Elegant typography.
-- Clean spacing.
-- Subtle gradients.
-- Thoughtful transitions.
-- Consistent iconography.
-- Responsive design.
-- Excellent accessibility.
-
-Create a distinctive Saucer logo/wordmark using an original design.
-
-Do not use Postiz logos, names, proprietary artwork or copied branding.
-
-Create reusable design tokens for:
-
-- Primary colors.
-- Secondary colors.
-- Backgrounds.
-- Borders.
-- Typography.
-- Radius.
-- Shadows.
-- Spacing.
-- Light theme.
-- Dark theme.
-
-Make the interface visually consistent across every route.
-
-## 4. PUBLIC LANDING PAGE
-
-Build the main public website at `/`.
-
-Required sections:
-
-1. Navigation bar.
-2. Hero section.
-3. Product introduction.
-4. Social media integration showcase.
-5. Feature overview.
-6. AI-powered content creation section.
-7. Scheduling demonstration.
-8. Analytics showcase.
-9. Subscription plan preview.
-10. FAQ section.
-11. Footer.
-
-Hero heading:
-
-"Your entire social presence. One platform."
-
-Supporting description:
-
-"Create, schedule, publish and manage all your social media from one powerful workspace, powered by Saucer AI."
-
-Primary CTA:
-"Get Started"
-
-Secondary CTA:
-"Explore Features"
-
-Create original illustrations or interface mockups where useful.
-
-The marketing website should be fast, responsive and SEO-friendly.
-
-Do not invent customer testimonials, fabricated usage statistics or unsupported integration claims.
-
-## 5. AUTHENTICATION
-
-Create:
-
-- `/login`
-- `/signup`
-- `/forgot-password`
-- `/onboarding`
-
-Use Supabase Auth.
+Inspect the existing Postiz scheduling architecture and approved Saucer architecture.
 
 Implement:
 
-- Email and password registration.
-- Login.
-- Logout.
-- Session management.
-- Email verification.
-- Password reset.
-- Protected application routes.
-- User profile.
+- Post persistence.
+- Scheduled publishing records.
+- Background execution.
+- Retry logic.
+- Idempotency.
+- Publishing status.
+- Error tracking.
+- Timezone-aware execution.
 
-Use secure server-side session handling.
+Do not force long-running jobs onto Vercel serverless functions.
 
-Use the appropriate Supabase SSR integration for Next.js.
+Determine the appropriate durable worker infrastructure.
 
-Never expose Supabase service-role credentials in browser code.
+## TESTING REQUIREMENTS
 
-## 6. APPLICATION DASHBOARD
+Run actual integration tests using test credentials.
 
-Create the authenticated application under `/app`.
+Verify:
 
-Build a premium dashboard layout with:
+1. User registration and login.
+2. Workspace persistence.
+3. Organization-level data isolation.
+4. Successful live Gemini generation.
+5. Concurrent AI credit reservations.
+6. Failed AI request refunds.
+7. Global AI quota exhaustion.
+8. Dodo test checkout.
+9. Duplicate webhook handling.
+10. Social OAuth.
+11. Scheduled publishing.
+12. Publishing retry after failure.
 
-### Sidebar navigation
+Separate mocked tests from real external API tests.
 
-- Overview.
-- Calendar.
-- Create Post.
-- Social Accounts.
-- Publishing Queue.
-- AI Studio.
-- Analytics.
-- Workspaces.
-- Team.
-- Automations.
-- Settings.
+## IMPORTANT
 
-### Top navigation
+Work incrementally. Do not attempt all integrations simultaneously.
 
-- Workspace selector.
-- Search.
-- Notifications.
-- AI credit balance.
-- User profile menu.
+Complete Supabase first, test it, then implement Saucer AI, Dodo, social connections and publishing.
 
-### Dashboard overview
+Maintain documentation.
 
-Include:
+Do not deploy publicly, switch to paid services, enable live payment mode or make purchases without approval.
 
-- Connected social account summary.
-- Scheduled post count.
-- Published post count.
-- Draft count.
-- Recent activity.
-- Upcoming scheduled posts.
-- Recent performance.
-- Quick creation actions.
-- AI credit usage.
+At the end of each priority, create a verification report identifying actual working features, mocked functionality, outstanding credentials and known defects.
 
-Use clearly labelled sample data only where actual integrations are not yet implemented.
-
-Never present fabricated analytics as real customer metrics.
-
-## 7. CORE APPLICATION SCREENS
-
-Build the initial user interfaces for the following routes.
-
-`/app`
-Main dashboard.
-
-`/app/calendar`
-Visual scheduling calendar with daily, weekly and monthly views.
-
-`/app/create`
-Post composer with:
-- Text editor.
-- Media attachment area.
-- Social account selector.
-- Platform-specific content tabs.
-- Preview panel.
-- Save draft action.
-- Publish and schedule actions.
-
-`/app/social-accounts`
-Connected account management.
-
-`/app/queue`
-Publishing queue and post status.
-
-`/app/ai`
-Saucer AI workspace.
-
-`/app/analytics`
-Analytics dashboard.
-
-`/app/workspaces`
-Workspace management.
-
-`/app/team`
-Team and member management.
-
-`/app/automations`
-Automation configuration.
-
-`/app/settings`
-Application settings.
-
-`/app/settings/billing`
-Subscription and billing interface.
-
-All screens must share a coherent design system.
-
-For functionality that has not yet been connected to the backend, create clear empty states or development placeholders.
-
-Do not make buttons appear functional when no corresponding action exists.
-
-## 8. DATABASE AND AUTHENTICATION FOUNDATION
-
-Connect the application to Supabase PostgreSQL.
-
-Read the existing database documentation before creating models.
-
-Implement the minimal initial database foundation for:
-
-- Profiles.
-- Organizations.
-- Organization members.
-- Workspaces.
-- Workspace members.
-
-Preserve existing architectural naming conventions where appropriate.
-
-Create database migrations.
-
-Use Prisma schema management.
-
-Implement secure server-side access control.
-
-Add Supabase Row Level Security where appropriate.
-
-Important:
-Prisma connections using privileged database credentials must not be assumed to receive the same RLS protection as browser requests. Enforce organization and workspace authorization in server-side application services as well.
-
-Keep user accounts, organizations and workspaces isolated.
-
-Do not introduce social OAuth tokens, payment records or AI ledger tables until their complete data model and implementation are ready.
-
-## 9. COMPONENT ARCHITECTURE
-
-Create reusable components for:
-
-- Sidebar.
-- Navigation.
-- Header.
-- Workspace selector.
-- User menu.
-- Metric cards.
-- Calendar.
-- Post cards.
-- Social platform icons.
-- Composer.
-- Modal dialogs.
-- Forms.
-- Tables.
-- Charts.
-- Empty states.
-- Loading states.
-- Error states.
-- Toast notifications.
-
-Avoid duplicating UI logic.
-
-Use suitable React server and client components.
-
-Keep client-side state minimal and predictable.
-
-## 10. RESPONSIVENESS
-
-Support:
-
-- Desktop.
-- Laptop.
-- Tablet.
-- Mobile.
-
-Make the dashboard usable on mobile, including navigation and content creation.
-
-Avoid overflow, broken layouts and fixed-width components that prevent smaller screens from working.
-
-## 11. ENVIRONMENT CONFIGURATION
-
-Create `.env.example`.
-
-Include only the environment variables actually required for the implemented phase.
-
-Typical Supabase variables include:
-
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-DATABASE_URL=
-DIRECT_URL=
-
-Do not invent real credentials.
-
-If credentials are unavailable, build the application with a safe local development mode and explain which real functionality requires configuration.
-
-Do not silently substitute fake authentication for production authentication.
-
-## 12. CODE QUALITY
-
-Use:
-
-- TypeScript strict mode.
-- Zod validation.
-- Clear component boundaries.
-- Reusable hooks.
-- Centralized configuration.
-- Secure server-side logic.
-- Error boundaries.
-- Loading indicators.
-- Accessible controls.
-
-Add meaningful tests.
-
-Ensure there are no unnecessary dependencies.
-
-Do not copy proprietary assets or branding from Postiz.
-
-Any source code reused from Postiz must remain subject to its applicable AGPL-3.0 obligations. Preserve required notices and update licensing documentation.
-
-## 13. DO NOT IMPLEMENT THESE YET
-
-Do not attempt to implement the complete publishing engine, all 30+ social integrations, Gemini AI gateway, AI credit ledger or Dodo Payments during this first phase.
-
-These will be separate engineering milestones.
-
-However, prepare the application architecture so these modules can be integrated without restructuring the entire frontend.
-
-Do not create fake publishing, AI or payment operations.
-
-## 14. TESTING
-
-After implementation:
-
-- Install dependencies.
-- Run the development server.
-- Run TypeScript checks.
-- Run linting.
-- Run production build.
-- Test all routes.
-- Test responsive layouts.
-- Test navigation.
-- Test authentication flows where credentials are available.
-- Check browser console errors.
-- Fix broken imports and missing components.
-
-The application must compile and run successfully.
-
-## 15. DELIVERABLES
-
-At the end, provide:
-
-1. Implemented project structure.
-2. All created routes.
-3. Main reusable components.
-4. Database migrations.
-5. Supabase configuration.
-6. `.env.example`.
-7. Documentation updates.
-8. Local setup instructions.
-9. Test results.
-10. Outstanding issues.
-11. Features requiring external credentials.
-12. Recommended Phase 2 implementation plan.
-
-Create or update `PHASE_1_REPORT.md`.
-
-Do not push to GitHub or deploy publicly.
-
-Do not make paid purchases or activate paid services.
-
-## FINAL INSTRUCTION
-
-Begin developing Saucer immediately.
-
-Work incrementally, inspect the existing project before modifying it, implement the actual application and verify that it runs.
-
-Prioritize a polished, functional application foundation over superficial screens.
-
-Do not stop after generating a plan. Complete Phase 1 and report the verified result.
+Begin with the Supabase integration.
