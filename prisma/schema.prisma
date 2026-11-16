@@ -1,0 +1,104 @@
+// Saucer Database Foundation — Phase 1
+// Provider: Supabase PostgreSQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum WorkspaceRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model Profile {
+  id                  String               @id @default(uuid())
+  supabaseUserId      String               @unique
+  email               String               @unique
+  fullName            String?
+  avatarUrl           String?
+  timezone            String               @default("UTC")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  organizationMembers OrganizationMember[]
+  workspaceMembers    WorkspaceMember[]
+
+  @@index([supabaseUserId])
+  @@index([email])
+}
+
+model Organization {
+  id                  String               @id @default(uuid())
+  name                String
+  slug                String               @unique
+  logoUrl             String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  members             OrganizationMember[]
+  workspaces          Workspace[]
+
+  @@index([slug])
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  profileId      String
+  role           Role         @default(MEMBER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile        Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, profileId])
+  @@index([organizationId])
+  @@index([profileId])
+}
+
+model Workspace {
+  id             String            @id @default(uuid())
+  organizationId String
+  name           String
+  slug           String
+  isDefault      Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        WorkspaceMember[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid())
+  workspaceId String
+  profileId   String
+  role        WorkspaceRole @default(EDITOR)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profile     Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, profileId])
+  @@index([workspaceId])
+  @@index([profileId])
+}
+
