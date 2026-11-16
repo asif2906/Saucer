@@ -685,3 +685,112 @@ Saucer integrates exclusively with **Dodo Payments** using modern Checkout Sessi
 }
 ```
 
+---
+
+## 9. Publishing & Scheduling Engine Routes (`/api/publishing/*`)
+
+### 9.1 Create or Schedule Broadcast Post
+- **Endpoint**: `POST /api/publishing/posts`
+- **Access**: Authenticated (Workspace Scoped)
+- **Request Body**:
+```json
+{
+  "content": "Universal broadcast copy across channels",
+  "postType": "STANDARD",
+  "scheduledAt": "2026-11-20T18:00:00+05:30",
+  "timezone": "Asia/Kolkata",
+  "publishNow": false,
+  "variants": [
+    {
+      "socialAccountId": "acc_li_101",
+      "platform": "LINKEDIN",
+      "caption": "Professional commentary for LinkedIn #b2b",
+      "mediaConfig": []
+    },
+    {
+      "socialAccountId": "acc_ig_202",
+      "platform": "INSTAGRAM",
+      "caption": "Instagram aesthetic copy #visuals",
+      "mediaConfig": [
+        { "url": "https://example.com/asset.jpg", "mediaType": "image" }
+      ]
+    }
+  ]
+}
+```
+- **Response (201 Created)**:
+```json
+{
+  "post": {
+    "id": "post_1001",
+    "status": "SCHEDULED",
+    "scheduledAt": "2026-11-20T12:30:00.000Z",
+    "variants": [...]
+  }
+}
+```
+
+### 9.2 List Posts (Queue, History, Calendar)
+- **Endpoint**: `GET /api/publishing/posts`
+- **Query Params**:
+  - `view=queue`: Returns upcoming scheduled/queued posts.
+  - `view=history`: Returns completed published, partially published, and failed posts.
+  - `view=calendar&startDate=...&endDate=...`: Returns posts in date range for calendar views.
+- **Access**: Authenticated
+
+### 9.3 Update or Reschedule Post
+- **Endpoint**: `PATCH /api/publishing/posts/:id`
+- **Access**: Authenticated
+- **Request Body**:
+```json
+{
+  "content": "Updated caption copy",
+  "scheduledAt": "2026-11-25T14:00:00Z"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "post": {
+    "id": "post_1001",
+    "status": "SCHEDULED",
+    "scheduledAt": "2026-11-25T14:00:00.000Z"
+  }
+}
+```
+
+### 9.4 Cancel Scheduled Post
+- **Endpoint**: `DELETE /api/publishing/posts/:id`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "post": {
+    "id": "post_1001",
+    "status": "CANCELLED"
+  }
+}
+```
+
+### 9.5 Manually Retry Failed Publish Job
+- **Endpoint**: `POST /api/publishing/jobs/:id/retry`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "result": {
+    "success": true,
+    "jobId": "job_1001",
+    "outcome": "SUCCESS",
+    "externalPostId": "urn:li:share:123456"
+  }
+}
+```
+
+### 9.6 Inngest Serverless Workflow Webhook
+- **Endpoint**: `GET | POST | PUT /api/inngest`
+- **Access**: Signed Inngest Request
+- **Features**: Dispatches `saucer/post.scheduled` durable workflow and runs 5-minute queue reconciliation cron.
+
+

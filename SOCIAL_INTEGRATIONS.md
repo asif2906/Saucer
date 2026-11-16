@@ -76,10 +76,10 @@ classDiagram
 
 | Platform | Provider Class | Auth Protocol | Formats Supported | Developer App Status & Approval Requirements |
 | :--- | :--- | :--- | :--- | :--- |
-| **Instagram** | `InstagramProvider` | Meta OAuth 2.0 | Single Image, Carousel (10), Reels Video | **Verified**. Requires Meta App with Instagram Graph API, `instagram_content_publish` permission, and professional Business/Creator account connected to a Facebook Page. |
-| **Facebook Pages** | `FacebookProvider` | Meta OAuth 2.0 | Text Posts, Single Image, Multi-Photo, Video Reels | **Verified**. Requires `pages_show_list`, `pages_manage_posts`, `pages_read_engagement` permissions. Uses page-scoped access tokens. |
-| **LinkedIn** | `LinkedInProvider` | LinkedIn OAuth 2.0 | Text Posts (3,000 chars), Images, Articles | **Verified**. Supports Member updates (`w_member_social`). Note: Organization Pages require LinkedIn Community Management API approval. Standard Developer accounts operate in Development Access mode. |
-| **YouTube** | `YouTubeProvider` | Google OAuth 2.0 | Long-form Video, YouTube Shorts | **Verified**. Requires Google Cloud Project verification for public use. Default daily quota is 10,000 units (1 video upload = 1,600 units). |
+| **Instagram** | `InstagramProvider` | Meta OAuth 2.0 | Single Image, Carousel (10), Reels Video | **Verified**. Requires Meta App with Instagram Graph API, `instagram_content_publish` permission, and professional Business/Creator account connected to a Facebook Page. Configurable API version (default `v21.0`). |
+| **Facebook Pages** | `FacebookProvider` | Meta OAuth 2.0 | Text Posts, Single Image, Multi-Photo, Video Reels | **Verified**. Requires `pages_show_list`, `pages_manage_posts`, `pages_read_engagement` permissions. Uses page-scoped access tokens. Configurable API version (default `v21.0`). |
+| **LinkedIn** | `LinkedInProvider` | LinkedIn OAuth 2.0 | Text Posts (3,000 chars), Images, Articles | **Verified**. Supports Member updates (`w_member_social`). Protocol version `202610` (October 2026). Note: Organization Pages require LinkedIn Community Management API approval. |
+| **YouTube** | `YouTubeProvider` | Google OAuth 2.0 | Long-form Video, YouTube Shorts | **Verified**. Uses dedicated Video Upload Quota bucket in YouTube Data API v3 rather than deducting from the general 1,600-unit query limit. |
 | **Pinterest** | `PinterestProvider` | Pinterest OAuth 2.0 | Visual Pins (Image/Video) + Board Link | **Verified**. Uses Pinterest API v5 with `pins:write` and `boards:read`. |
 | **X (Twitter)** | *Deferred* | OAuth 2.0 PKCE | — | **Postponed**. API access deferred until official commercial API costs are evaluated and explicitly approved. |
 
@@ -88,7 +88,7 @@ classDiagram
 ## 3. Platform-Specific Publishing Details
 
 ### 3.1 Instagram Business / Creator
-- **API Endpoint**: `https://graph.facebook.com/v21.0`
+- **API Endpoint**: `https://graph.facebook.com/${META_GRAPH_API_VERSION || 'v21.0'}`
 - **Publishing Steps**:
   1. Create Container: `POST /{ig-user-id}/media` with `image_url` or `video_url` (with `media_type: "REELS"`).
   2. Poll Container Status: `GET /{container-id}?fields=status_code` (`FINISHED`, `IN_PROGRESS`, `ERROR`).
@@ -96,13 +96,13 @@ classDiagram
 - **Constraints**: Requires at least 1 image or video (text-only posts not supported by Instagram). Max caption length: 2,200 characters.
 
 ### 3.2 Facebook Pages
-- **API Endpoint**: `https://graph.facebook.com/v21.0`
+- **API Endpoint**: `https://graph.facebook.com/${META_GRAPH_API_VERSION || 'v21.0'}`
 - **Page Discovery**: `GET /me/accounts` yields managed pages with page-scoped `access_token`.
 - **Publishing**: `POST /{page-id}/feed` (text), `POST /{page-id}/photos` (images), `POST /{page-id}/videos` (video).
 - **Constraints**: Max text length: 63,206 characters.
 
 ### 3.3 LinkedIn (Personal & Company Pages)
-- **API Endpoint**: `https://api.linkedin.com/rest/posts` (with `LinkedIn-Version: 202401`)
+- **API Endpoint**: `https://api.linkedin.com/rest/posts` (with `LinkedIn-Version: 202610`)
 - **Author Identity**: `urn:li:person:{id}` (profile) or `urn:li:organization:{id}` (company page).
 - **Developer Approval Requirements**:
   - `w_member_social`: Included in "Share on LinkedIn" product for individual profiles.
@@ -111,7 +111,7 @@ classDiagram
 ### 3.4 YouTube & YouTube Shorts
 - **API Endpoint**: `https://www.googleapis.com/youtube/v3/videos`
 - **Constraints**: Video attachment required. Titles max 100 characters, descriptions max 5,000 characters.
-- **Quota Impact**: Each video insert consumes 1,600 quota units out of the 10,000 default daily quota allocation.
+- **Quota Accounting**: Video upload operations (`videos.insert`) utilize YouTube's separate dedicated Video Upload Quota bucket rather than the legacy 1,600-unit deduction from the core 10,000 daily read/write project quota.
 
 ### 3.5 Pinterest
 - **API Endpoint**: `https://api.pinterest.com/v5/pins`

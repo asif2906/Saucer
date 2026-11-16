@@ -26,6 +26,10 @@ export class LinkedInProvider implements ISocialProvider {
     return process.env.LINKEDIN_CLIENT_SECRET || "linkedin_mock_client_secret";
   }
 
+  public getApiVersion(): string {
+    return process.env.LINKEDIN_API_VERSION || "202610";
+  }
+
   public getAuthorizationUrl(params: {
     state: string;
     redirectUri: string;
@@ -218,7 +222,7 @@ export class LinkedInProvider implements ISocialProvider {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "LinkedIn-Version": "202401",
+          "LinkedIn-Version": this.getApiVersion(),
           "X-Restli-Protocol-Version": "2.0.0",
           "Content-Type": "application/json",
         },

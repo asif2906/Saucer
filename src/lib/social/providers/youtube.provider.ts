@@ -212,7 +212,9 @@ export class YouTubeProvider implements ISocialProvider {
 
     try {
       const video = post.media[0];
-      // Note on YouTube API upload:
+      // Note on YouTube API upload & quota accounting:
+      // YouTube Data API v3 utilizes dedicated upload quota limits for `videos.insert` (video uploads)
+      // rather than the legacy 1,600-unit deduction from the core 10,000 read/write project quota.
       // In production, YouTube requires resumable multi-part upload protocol to https://www.googleapis.com/upload/youtube/v3/videos
       const insertUrl = "https://www.googleapis.com/youtube/v3/videos?part=snippet,status";
 

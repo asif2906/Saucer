@@ -27,11 +27,15 @@ export class InstagramProvider implements ISocialProvider {
     return process.env.META_APP_SECRET || process.env.INSTAGRAM_APP_SECRET || "meta_app_mock_secret";
   }
 
+  public getApiVersion(): string {
+    return process.env.META_GRAPH_API_VERSION || "v21.0";
+  }
+
   public getAuthorizationUrl(params: {
     state: string;
     redirectUri: string;
   }): string {
-    const url = new URL("https://www.facebook.com/v21.0/dialog/oauth");
+    const url = new URL(`https://www.facebook.com/${this.getApiVersion()}/dialog/oauth`);
     url.searchParams.set("client_id", this.getAppId());
     url.searchParams.set("redirect_uri", params.redirectUri);
     url.searchParams.set("state", params.state);
@@ -62,7 +66,7 @@ export class InstagramProvider implements ISocialProvider {
     }
 
     // Step 1: Exchange code for short-lived token
-    const tokenUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+    const tokenUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     tokenUrl.searchParams.set("client_id", appId);
     tokenUrl.searchParams.set("client_secret", appSecret);
     tokenUrl.searchParams.set("redirect_uri", params.redirectUri);
@@ -78,7 +82,7 @@ export class InstagramProvider implements ISocialProvider {
     const shortLivedToken = tokenData.access_token;
 
     // Step 2: Exchange for long-lived 60-day token
-    const longLivedUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+    const longLivedUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     longLivedUrl.searchParams.set("grant_type", "fb_exchange_token");
     longLivedUrl.searchParams.set("client_id", appId);
     longLivedUrl.searchParams.set("client_secret", appSecret);
@@ -114,7 +118,7 @@ export class InstagramProvider implements ISocialProvider {
       };
     }
 
-    const refreshUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+    const refreshUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     refreshUrl.searchParams.set("grant_type", "fb_exchange_token");
     refreshUrl.searchParams.set("client_id", appId);
     refreshUrl.searchParams.set("client_secret", appSecret);
@@ -148,7 +152,7 @@ export class InstagramProvider implements ISocialProvider {
     }
 
     // Discover Instagram Business Accounts via Facebook Pages
-    const accountsUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`;
+    const accountsUrl = `https://graph.facebook.com/${this.getApiVersion()}/me/accounts?fields=id,name,instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`;
     const res = await fetch(accountsUrl);
     const data = await res.json();
 
@@ -217,7 +221,7 @@ export class InstagramProvider implements ISocialProvider {
       // 1. Create Media Container
       const firstMedia = post.media[0];
       const isVideo = firstMedia.mediaType === "video";
-      const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`;
+      const containerUrl = `https://graph.facebook.com/${this.getApiVersion()}/${accountId}/media`;
 
       const containerParams: Record<string, string> = {
         access_token: accessToken,
@@ -250,7 +254,7 @@ export class InstagramProvider implements ISocialProvider {
       const creationId = containerData.id;
 
       // 2. Publish Container
-      const publishUrl = `https://graph.facebook.com/v21.0/${accountId}/media_publish`;
+      const publishUrl = `https://graph.facebook.com/${this.getApiVersion()}/${accountId}/media_publish`;
       const publishRes = await fetch(publishUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -295,7 +299,7 @@ export class InstagramProvider implements ISocialProvider {
     }
 
     try {
-      const statusUrl = `https://graph.facebook.com/v21.0/${publishJobId}?fields=status_code&access_token=${accessToken}`;
+      const statusUrl = `https://graph.facebook.com/${this.getApiVersion()}/${publishJobId}?fields=status_code&access_token=${accessToken}`;
       const res = await fetch(statusUrl);
       const data = await res.json();
 

@@ -221,3 +221,15 @@ Saucer operates exclusively on the unpaid free tier of Google AI Studio:
 - **Checkout Experience**: Hosted Dodo Payments Checkout Sessions for recurring subscriptions and one-time AI credit packs.
 - **Webhook Gateway**: Dedicated endpoint `/api/v1/billing/dodo/webhook` with mandatory cryptographic signature validation.
 - **Entitlement Sync**: Verified webhooks update the `Subscription` and `AiCreditBalance` tables atomically, synchronizing CASL policy checks immediately across all active user sessions.
+
+---
+
+## 9. Social Publishing & Inngest Workflow Engine (Priority 5)
+
+- **Workflow Orchestration**: Serverless event-driven architecture using **Inngest** (`/api/inngest`).
+- **No Long-Running Processes**: No PM2 or persistent Node daemons required; runs natively on Vercel Edge/Serverless.
+- **Authoritative Database Source**: PostgreSQL retains the ground truth of all posts, variants, scheduled jobs, and attempt logs.
+- **Atomic Aggregate States**: Distinguishes single and multi-platform broadcasts with granular outcomes (`PARTIALLY_PUBLISHED`, `PUBLISHED`, `FAILED`).
+- **Cryptographic Security**: Strict AES-256-GCM token encryption at rest; tokens are only decrypted transiently within isolated worker execution turns.
+- **Dead-Letter & Stale Protection**: Dynamic invalidation aborts stale jobs if posts are updated or cancelled before execution.
+

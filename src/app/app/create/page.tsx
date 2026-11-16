@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { PlatformIcon } from "@/components/platform-icon";
 import { PostPreviewCard } from "@/components/post-preview-card";
@@ -20,93 +20,241 @@ import {
   Smile,
   AlertCircle,
   HelpCircle,
+  Loader2,
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface SocialAccountOption {
+  id: string;
+  provider: string;
+  accountName: string;
+  accountHandle?: string;
+  avatarUrl?: string;
+}
+
 export default function PostComposerPage() {
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(["x", "linkedin"]);
+  const [accounts, setAccounts] = useState<SocialAccountOption[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>("master");
+  
   const [masterContent, setMasterContent] = useState("");
-  const [xContent, setXContent] = useState("");
-  const [linkedinContent, setLinkedinContent] = useState("");
-  const [instagramContent, setInstagramContent] = useState("");
-  const [previewPlatform, setPreviewPlatform] = useState<string>("x");
-  const [scheduledDate, setScheduledDate] = useState("2026-11-20");
-  const [scheduledTime, setScheduledTime] = useState("16:30");
+  const [channelContent, setChannelContent] = useState<Record<string, string>>({});
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [hasMedia, setHasMedia] = useState(false);
 
-  const availableChannels = [
-    { id: "x", name: "X (@acmeorbit)" },
-    { id: "linkedin", name: "LinkedIn (Acme Media)" },
-    { id: "instagram", name: "Instagram (@acmevisuals)" },
-    { id: "facebook", name: "Facebook (Acme HQ)" },
-  ];
+  const [scheduledDate, setScheduledDate] = useState(() => {
+    const d = new Date(Date.now() + 24 * 3600 * 1000);
+    return d.toISOString().split("T")[0];
+  });
+  const [scheduledTime, setScheduledTime] = useState("12:00");
+  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
 
-  const toggleChannel = (id: string) => {
-    if (selectedChannels.includes(id)) {
-      if (selectedChannels.length === 1) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastPublishedPost, setLastPublishedPost] = useState<any>(null);
+
+  // Load connected accounts
+  useEffect(() => {
+    async function loadAccounts() {
+      try {
+        setLoadingAccounts(true);
+        const res = await fetch("/api/social/accounts");
+        if (res.ok) {
+          const data = await res.json();
+          const list: SocialAccountOption[] = (data.accounts || []).map((acc: any) => ({
+            id: acc.id,
+            provider: acc.provider,
+            accountName: acc.accountName,
+            accountHandle: acc.accountHandle,
+            avatarUrl: acc.avatarUrl,
+          }));
+          setAccounts(list);
+          if (list.length > 0) {
+            setSelectedAccountIds([list[0].id]);
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load accounts:", err);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    }
+    loadAccounts();
+  }, []);
+
+  const toggleAccount = (id: string) => {
+    if (selectedAccountIds.includes(id)) {
+      if (selectedAccountIds.length === 1) {
         toast.error("At least one social channel must be selected.");
         return;
       }
-      setSelectedChannels(selectedChannels.filter((c) => c !== id));
+      setSelectedAccountIds(selectedAccountIds.filter((accId) => accId !== id));
     } else {
-      setSelectedChannels([...selectedChannels, id]);
+      setSelectedAccountIds([...selectedAccountIds, id]);
     }
   };
 
   const getActiveContent = () => {
-    if (activeTab === "x") return xContent || masterContent;
-    if (activeTab === "linkedin") return linkedinContent || masterContent;
-    if (activeTab === "instagram") return instagramContent || masterContent;
-    return masterContent;
+    if (activeTab === "master") return masterContent;
+    return channelContent[activeTab] || masterContent;
   };
 
   const handleContentChange = (val: string) => {
     if (activeTab === "master") {
       setMasterContent(val);
-    } else if (activeTab === "x") {
-      setXContent(val);
-    } else if (activeTab === "linkedin") {
-      setLinkedinContent(val);
-    } else if (activeTab === "instagram") {
-      setInstagramContent(val);
+    } else {
+      setChannelContent((prev) => ({ ...prev, [activeTab]: val }));
     }
   };
 
-  const handleSaveDraft = () => {
-    if (!masterContent.trim() && !xContent && !linkedinContent) {
-      toast.error("Please enter post content before saving draft.");
-      return;
-    }
-    toast.success("Draft saved successfully to workspace!");
-  };
-
-  const handleSchedule = () => {
-    if (!masterContent.trim() && !xContent && !linkedinContent) {
-      toast.error("Please enter post content before scheduling.");
-      return;
-    }
-    toast.success(`Post successfully scheduled for ${scheduledDate} at ${scheduledTime} UTC!`);
-  };
-
-  const handlePublishNow = () => {
-    if (!masterContent.trim() && !xContent && !linkedinContent) {
-      toast.error("Please enter post content before publishing.");
-      return;
-    }
-    toast.success("Broadcast dispatched across connected channels!");
-  };
+  const selectedAccounts = accounts.filter((a) => selectedAccountIds.includes(a.id));
 
   // Character limit calculation
   const charLimits: Record<string, number> = {
-    x: 280,
-    linkedin: 3000,
-    instagram: 2200,
-    master: 280,
+    INSTAGRAM: 2200,
+    FACEBOOK: 63206,
+    LINKEDIN: 3000,
+    LINKEDIN_PAGE: 3000,
+    YOUTUBE: 5000,
+    PINTEREST: 500,
+    master: 2200,
   };
+
+  const currentTabAccount = accounts.find((a) => a.id === activeTab);
+  const currentLimit = currentTabAccount ? (charLimits[currentTabAccount.provider] || 3000) : 2200;
   const currentText = getActiveContent();
-  const currentLimit = charLimits[activeTab] || 280;
   const isOverLimit = currentText.length > currentLimit;
+
+  // Build variants payload
+  const buildVariantsPayload = () => {
+    return selectedAccounts.map((acc) => {
+      const caption = channelContent[acc.id] || masterContent;
+      const mediaList = hasMedia && mediaUrl.trim()
+        ? [{ url: mediaUrl.trim(), mediaType }]
+        : [];
+      return {
+        socialAccountId: acc.id,
+        platform: acc.provider,
+        caption,
+        mediaConfig: mediaList,
+        platformMetadata: {},
+      };
+    });
+  };
+
+  const handleSaveDraft = async () => {
+    if (!masterContent.trim() && Object.values(channelContent).every((c) => !c.trim())) {
+      toast.error("Please enter post content before saving draft.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch("/api/publishing/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: masterContent,
+          scheduledAt: null,
+          timezone,
+          publishNow: false,
+          variants: buildVariantsPayload(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save draft.");
+
+      toast.success("Draft saved successfully to workspace!");
+      setLastPublishedPost(data.post);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!masterContent.trim() && Object.values(channelContent).every((c) => !c.trim())) {
+      toast.error("Please enter post content before scheduling.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const combinedDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`);
+      if (isNaN(combinedDateTime.getTime()) || combinedDateTime.getTime() <= Date.now()) {
+        toast.error("Please select a valid future date and time for scheduling.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const res = await fetch("/api/publishing/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: masterContent,
+          scheduledAt: combinedDateTime.toISOString(),
+          timezone,
+          publishNow: false,
+          variants: buildVariantsPayload(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to schedule post.");
+
+      toast.success(`Post successfully scheduled for ${scheduledDate} at ${scheduledTime} (${timezone})!`);
+      setLastPublishedPost(data.post);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!masterContent.trim() && Object.values(channelContent).every((c) => !c.trim())) {
+      toast.error("Please enter post content before publishing.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch("/api/publishing/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: masterContent,
+          scheduledAt: null,
+          timezone,
+          publishNow: true,
+          variants: buildVariantsPayload(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to publish post.");
+
+      setLastPublishedPost(data.post);
+      const status = data.post?.status;
+
+      if (status === "PUBLISHED") {
+        toast.success("Broadcast successfully published across all selected channels!");
+      } else if (status === "PARTIALLY_PUBLISHED") {
+        toast.warning("Broadcast partially published: some channels succeeded, others failed.");
+      } else {
+        toast.error(`Publishing failed or queued: ${status}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -122,85 +270,100 @@ export default function PostComposerPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Button variant="outline" size="sm" onClick={handleSaveDraft}>
+          <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSubmitting}>
             <Save className="w-3.5 h-3.5 mr-1" />
             <span>Save Draft</span>
           </Button>
-          <Button variant="gradient" size="sm" onClick={handleSchedule}>
+          <Button variant="gradient" size="sm" onClick={handleSchedule} disabled={isSubmitting}>
             <Calendar className="w-3.5 h-3.5 mr-1" />
             <span>Schedule Post</span>
           </Button>
-          <Button variant="default" size="sm" onClick={handlePublishNow}>
-            <Send className="w-3.5 h-3.5 mr-1" />
+          <Button variant="default" size="sm" onClick={handlePublishNow} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5 mr-1" />
+            )}
             <span>Publish Now</span>
           </Button>
         </div>
       </div>
 
-      {/* Main Two-Column Layout: Composer (Left) + Live Preview (Right) */}
+      {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Col: Composer Form (7 Cols) */}
+        {/* Left Col: Composer Form */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Channel Selector Row */}
+          {/* Channel Selector */}
           <Card className="p-4 space-y-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-              1. Select Target Social Channels
-            </span>
-            <div className="flex flex-wrap gap-2.5">
-              {availableChannels.map((ch) => {
-                const isSelected = selectedChannels.includes(ch.id);
-                return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    onClick={() => toggleChannel(ch.id)}
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                      isSelected
-                        ? "border-violet-500 bg-violet-600/15 text-foreground font-semibold shadow-xs"
-                        : "border-border hover:bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    <PlatformIcon platform={ch.id} size={15} />
-                    <span>{ch.name}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-violet-500 ml-0.5" />}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Platform Customization Tabs */}
-          <Card className="p-4 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between pb-2 border-b">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                2. Craft & Customize Content
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                1. Select Target Social Accounts
               </span>
               <Link
-                href="/app/ai"
-                className="inline-flex items-center gap-1.5 text-xs text-violet-500 hover:text-violet-400 font-semibold"
+                href="/app/social-accounts"
+                className="text-xs text-violet-500 hover:underline flex items-center gap-1"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Open Saucer AI</span>
+                <span>Manage Accounts</span>
+                <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-4 w-full">
+            {loadingAccounts ? (
+              <div className="py-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                <span>Loading connected accounts...</span>
+              </div>
+            ) : accounts.length === 0 ? (
+              <div className="py-4 border border-dashed rounded-lg text-center p-4">
+                <p className="text-xs text-muted-foreground mb-2">No social accounts connected yet.</p>
+                <Link href="/app/social-accounts">
+                  <Button size="sm" variant="outline">Connect Social Accounts</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2.5 pt-1">
+                {accounts.map((acc) => {
+                  const isSelected = selectedAccountIds.includes(acc.id);
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => toggleAccount(acc.id)}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                        isSelected
+                          ? "border-violet-500 bg-violet-600/15 text-foreground font-semibold shadow-xs"
+                          : "border-border hover:bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      <PlatformIcon platform={acc.provider.toLowerCase()} className="w-3.5 h-3.5" />
+                      <span>{acc.accountName}</span>
+                      {isSelected && <Check className="w-3 h-3 text-violet-500 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Content Editor with Tabs */}
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                2. Craft Content & Platform Overrides
+              </span>
+            </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="bg-muted/60 p-1 flex-wrap h-auto gap-1">
                 <TabsTrigger value="master" className="text-xs">
-                  Master Post
+                  Master Copy
                 </TabsTrigger>
-                <TabsTrigger value="x" className="text-xs flex items-center gap-1.5">
-                  <PlatformIcon platform="x" size={12} />
-                  <span>X (Twitter)</span>
-                </TabsTrigger>
-                <TabsTrigger value="linkedin" className="text-xs flex items-center gap-1.5">
-                  <PlatformIcon platform="linkedin" size={12} />
-                  <span>LinkedIn</span>
-                </TabsTrigger>
-                <TabsTrigger value="instagram" className="text-xs flex items-center gap-1.5">
-                  <PlatformIcon platform="instagram" size={12} />
-                  <span>Instagram</span>
-                </TabsTrigger>
+                {selectedAccounts.map((acc) => (
+                  <TabsTrigger key={acc.id} value={acc.id} className="text-xs flex items-center gap-1.5">
+                    <PlatformIcon platform={acc.provider.toLowerCase()} className="w-3 h-3" />
+                    <span className="truncate max-w-[100px]">{acc.accountName}</span>
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
               <div className="mt-3 relative">
@@ -209,131 +372,145 @@ export default function PostComposerPage() {
                   onChange={(e) => handleContentChange(e.target.value)}
                   placeholder={
                     activeTab === "master"
-                      ? "Write your main message here. It will automatically populate individual channel tabs unless overridden..."
-                      : `Customized caption specifically for ${activeTab.toUpperCase()}...`
+                      ? "Write your universal update here... (Individual tabs allow per-platform customization)"
+                      : `Custom caption for ${currentTabAccount?.accountName || "this platform"}...`
                   }
-                  className="min-h-[180px] text-sm leading-relaxed"
+                  className="min-h-[140px] text-sm resize-none focus-visible:ring-violet-500"
                 />
 
-                {/* Character Counter Badge */}
-                <div className="flex items-center justify-between mt-2 text-xs">
-                  <div className="flex items-center gap-3 text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 px-1">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleContentChange(getActiveContent() + " #SaucerAI #SocialMedia")}
-                      className="hover:text-foreground flex items-center gap-1"
+                      onClick={() => setHasMedia(!hasMedia)}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
+                        hasMedia ? "border-violet-500 bg-violet-500/10 text-violet-400" : "border-border hover:bg-muted"
+                      }`}
                     >
-                      <Hash className="w-3.5 h-3.5" /> <span>Add Tags</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleContentChange(getActiveContent() + " 🚀✨")}
-                      className="hover:text-foreground flex items-center gap-1"
-                    >
-                      <Smile className="w-3.5 h-3.5" /> <span>Emojis</span>
+                      <ImageIcon className="w-3 h-3" />
+                      <span>{hasMedia ? "Media Attached" : "Attach Media"}</span>
                     </button>
                   </div>
-
-                  <span
-                    className={`font-semibold ${
-                      isOverLimit ? "text-destructive" : "text-muted-foreground"
-                    }`}
-                  >
-                    {currentText.length} / {currentLimit} chars
+                  <span className={isOverLimit ? "text-destructive font-semibold" : ""}>
+                    {currentText.length} / {currentLimit}
                   </span>
                 </div>
+
+                {/* Media Configuration Input */}
+                {hasMedia && (
+                  <div className="mt-3 p-3 border rounded-lg bg-muted/30 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-foreground">Media Attachment URL</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMediaType("image")}
+                          className={`text-xs px-2 py-0.5 rounded ${mediaType === "image" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                        >
+                          Image
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMediaType("video")}
+                          className={`text-xs px-2 py-0.5 rounded ${mediaType === "video" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                        >
+                          Video
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={mediaUrl}
+                      onChange={(e) => setMediaUrl(e.target.value)}
+                      placeholder="https://example.com/asset.jpg (or Supabase Storage URL)"
+                      className="w-full text-xs px-3 py-1.5 rounded border bg-background"
+                    />
+                  </div>
+                )}
               </div>
             </Tabs>
+          </Card>
 
-            {/* Media Attachment Dropzone */}
-            <div className="pt-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-                3. Media Attachments
-              </span>
-              <div
-                onClick={() => {
-                  setHasMedia(!hasMedia);
-                  toast.info(hasMedia ? "Media removed" : "Sample image asset attached to post");
-                }}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                  hasMedia
-                    ? "border-violet-500 bg-violet-600/5"
-                    : "border-border hover:border-violet-500/50 hover:bg-muted/30"
-                }`}
-              >
-                <ImageIcon className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <span className="text-xs font-semibold text-foreground block">
-                  {hasMedia ? "1 Image Attached (banner_preview.png)" : "Click to attach images, videos or carousel slides"}
-                </span>
-                <span className="text-[11px] text-muted-foreground block mt-0.5">
-                  Supports PNG, JPG, MP4 (Max 100MB • Auto-transcoded for social specs)
-                </span>
-              </div>
-            </div>
-
-            {/* Scheduling Date/Time Picker */}
-            <div className="pt-2 border-t">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
-                4. Scheduling Parameters (UTC)
-              </span>
-              <div className="grid grid-cols-2 gap-3">
+          {/* Scheduling Configuration Card */}
+          <Card className="p-5 space-y-4">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+              3. Scheduling & Timezone
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Date</label>
                 <input
                   type="date"
                   value={scheduledDate}
                   onChange={(e) => setScheduledDate(e.target.value)}
-                  className="h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                  className="w-full text-xs px-3 py-2 rounded-lg border bg-background"
                 />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Time (24h)</label>
                 <input
                   type="time"
                   value={scheduledTime}
                   onChange={(e) => setScheduledTime(e.target.value)}
-                  className="h-9 rounded-lg border border-input bg-background px-3 text-xs"
+                  className="w-full text-xs px-3 py-2 rounded-lg border bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Timezone</label>
+                <input
+                  type="text"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="w-full text-xs px-3 py-2 rounded-lg border bg-background"
                 />
               </div>
             </div>
           </Card>
-        </div>
 
-        {/* Right Col: Live Platform Preview Panel (5 Cols) */}
-        <div className="lg:col-span-5 space-y-4 sticky top-24">
-          <Card className="p-4 shadow-sm">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b">
-              <span className="text-xs font-bold text-foreground">Live Network Preview</span>
-              {/* Platform Switcher Buttons */}
-              <div className="flex gap-1.5">
-                {["x", "linkedin", "instagram"].map((plat) => (
-                  <button
-                    key={plat}
-                    onClick={() => setPreviewPlatform(plat)}
-                    className={`p-1.5 rounded-lg border transition-all ${
-                      previewPlatform === plat
-                        ? "bg-violet-600/15 border-violet-500"
-                        : "border-border hover:bg-muted"
-                    }`}
-                    title={`Preview on ${plat}`}
-                  >
-                    <PlatformIcon platform={plat} size={14} />
-                  </button>
+          {/* Last Published Outcomes Display */}
+          {lastPublishedPost && (
+            <Card className="p-4 border-violet-500/40 bg-violet-950/10 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">
+                  Publishing Outcome: {lastPublishedPost.status}
+                </span>
+                <Badge variant={lastPublishedPost.status === "PUBLISHED" ? "default" : "secondary"}>
+                  {lastPublishedPost.status}
+                </Badge>
+              </div>
+              <div className="space-y-1.5 pt-1">
+                {lastPublishedPost.variants?.map((v: any) => (
+                  <div key={v.id} className="text-xs flex items-center justify-between py-1 border-b border-border/50">
+                    <span className="font-medium text-foreground">{v.platform}</span>
+                    <span className={v.status === "PUBLISHED" ? "text-emerald-400 font-semibold" : "text-amber-400"}>
+                      {v.status} {v.externalPostId ? `(#${v.externalPostId.slice(-8)})` : ""}
+                    </span>
+                  </div>
                 ))}
               </div>
-            </div>
+            </Card>
+          )}
+        </div>
 
-            {/* Render Preview Card */}
-            <PostPreviewCard
-              platform={previewPlatform}
-              content={
-                previewPlatform === "x" && xContent
-                  ? xContent
-                  : previewPlatform === "linkedin" && linkedinContent
-                  ? linkedinContent
-                  : previewPlatform === "instagram" && instagramContent
-                  ? instagramContent
-                  : masterContent
-              }
-              mediaUrls={hasMedia ? ["sample_url"] : []}
-              scheduledTime={`${scheduledDate} at ${scheduledTime}`}
-            />
-          </Card>
+        {/* Right Col: Live Platform Preview */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Live Preview
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {currentTabAccount?.provider || "Universal"}
+            </Badge>
+          </div>
+
+          <PostPreviewCard
+            platform={(currentTabAccount?.provider.toLowerCase() || "x") as any}
+            content={getActiveContent() || "Preview copy will appear here dynamically as you craft your broadcast..."}
+            authorName={currentTabAccount?.accountName || "Your Brand"}
+            authorHandle={currentTabAccount?.accountHandle || "@yourbrand"}
+            authorAvatar={currentTabAccount?.avatarUrl}
+            mediaUrls={hasMedia && mediaUrl ? [mediaUrl] : []}
+          />
         </div>
       </div>
     </div>

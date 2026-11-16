@@ -26,11 +26,15 @@ export class FacebookProvider implements ISocialProvider {
     return process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "meta_app_mock_secret";
   }
 
+  public getApiVersion(): string {
+    return process.env.META_GRAPH_API_VERSION || "v21.0";
+  }
+
   public getAuthorizationUrl(params: {
     state: string;
     redirectUri: string;
   }): string {
-    const url = new URL("https://www.facebook.com/v21.0/dialog/oauth");
+    const url = new URL(`https://www.facebook.com/${this.getApiVersion()}/dialog/oauth`);
     url.searchParams.set("client_id", this.getAppId());
     url.searchParams.set("redirect_uri", params.redirectUri);
     url.searchParams.set("state", params.state);
@@ -59,7 +63,7 @@ export class FacebookProvider implements ISocialProvider {
       };
     }
 
-    const tokenUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+    const tokenUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     tokenUrl.searchParams.set("client_id", appId);
     tokenUrl.searchParams.set("client_secret", appSecret);
     tokenUrl.searchParams.set("redirect_uri", params.redirectUri);
@@ -73,7 +77,7 @@ export class FacebookProvider implements ISocialProvider {
     }
 
     // Exchange for long-lived token
-    const longLivedUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
+    const longLivedUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     longLivedUrl.searchParams.set("grant_type", "fb_exchange_token");
     longLivedUrl.searchParams.set("client_id", appId);
     longLivedUrl.searchParams.set("client_secret", appSecret);
@@ -106,7 +110,7 @@ export class FacebookProvider implements ISocialProvider {
     }
 
     // Fetch managed Facebook Pages with page-scoped tokens
-    const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,category,access_token,picture{url}&access_token=${accessToken}`;
+    const pagesUrl = `https://graph.facebook.com/${this.getApiVersion()}/me/accounts?fields=id,name,category,access_token,picture{url}&access_token=${accessToken}`;
     const res = await fetch(pagesUrl);
     const data = await res.json();
 
@@ -163,7 +167,7 @@ export class FacebookProvider implements ISocialProvider {
 
     try {
       const hasMedia = post.media && post.media.length > 0;
-      let endpoint = `https://graph.facebook.com/v21.0/${accountId}/feed`;
+      let endpoint = `https://graph.facebook.com/${this.getApiVersion()}/${accountId}/feed`;
       const body: Record<string, string> = {
         access_token: accessToken,
       };
@@ -173,11 +177,11 @@ export class FacebookProvider implements ISocialProvider {
       } else {
         const firstMedia = post.media![0];
         if (firstMedia.mediaType === "video") {
-          endpoint = `https://graph.facebook.com/v21.0/${accountId}/videos`;
+          endpoint = `https://graph.facebook.com/${this.getApiVersion()}/${accountId}/videos`;
           body.file_url = firstMedia.url;
           body.description = post.content;
         } else {
-          endpoint = `https://graph.facebook.com/v21.0/${accountId}/photos`;
+          endpoint = `https://graph.facebook.com/${this.getApiVersion()}/${accountId}/photos`;
           body.url = firstMedia.url;
           body.caption = post.content;
         }

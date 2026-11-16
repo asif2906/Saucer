@@ -29,17 +29,20 @@ This document provides a comparative matrix of publishing capabilities, media fo
 
 ### 2.1 Instagram Business / Creator
 - **Developer Portal**: Meta for Developers (`developers.facebook.com`)
+- **API Version**: Meta Graph API `v21.0` (configurable dynamically via `META_GRAPH_API_VERSION`)
 - **Required Permissions**: `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`
 - **Account Eligibility**: Must be a professional Instagram Business or Creator account connected to a Facebook Page. Personal Instagram accounts are not supported by the Meta Graph API.
 - **Review Status**: Pre-approved for development; production broadcasting requires Meta App Review.
 
 ### 2.2 Facebook Pages
 - **Developer Portal**: Meta for Developers
+- **API Version**: Meta Graph API `v21.0` (configurable dynamically via `META_GRAPH_API_VERSION`)
 - **Required Permissions**: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `public_profile`
 - **Review Status**: Tested and certified in Development mode with page-scoped access tokens.
 
 ### 2.3 LinkedIn (Profiles & Organization Pages)
 - **Developer Portal**: LinkedIn Developer Portal (`linkedin.com/developers`)
+- **API Version**: LinkedIn REST Protocol Version `202610` (October 2026 release)
 - **Required Permissions**:
   - `openid`, `profile`, `email`: Standard Sign-In with LinkedIn.
   - `w_member_social`: Member posting (included with Share on LinkedIn).
@@ -49,7 +52,7 @@ This document provides a comparative matrix of publishing capabilities, media fo
 ### 2.4 YouTube
 - **Developer Portal**: Google Cloud Console
 - **Required Scopes**: `https://www.googleapis.com/auth/youtube.upload`, `https://www.googleapis.com/auth/youtube.readonly`
-- **Quota Constraints**: Standard default quota is 10,000 units/day. A single video insert costs 1,600 units (~6 uploads/day on default quota). Higher limits require Google API quota audit approval.
+- **Quota Constraints**: In the current YouTube Data API v3, `videos.insert` (video uploads) operates within YouTube's dedicated Video Upload Quota allocation rather than deducting from the legacy 1,600-unit general Data API read/write project quota (which remains 10,000 units/day for metadata queries). Higher upload thresholds require Google Cloud Quota increase requests.
 
 ### 2.5 Pinterest
 - **Developer Portal**: Pinterest Developers (`developers.pinterest.com`)

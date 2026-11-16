@@ -111,3 +111,18 @@ flowchart LR
    - Entitlements and paid features are **never** granted based on client-side redirect query parameters (e.g. `?status=success`). Only verified server-to-server webhook deliveries trigger database mutations.
    - Development and staging environments run strictly with `DODO_PAYMENTS_ENVIRONMENT=test_mode`. Live billing activation is protected behind administrative approvals.
 
+---
+
+## 9. Publishing & Worker Security Hardening (Priority 5)
+
+1. **OAuth Token Confidentiality**:
+   - Social media platform tokens are stored in `SocialAccount` encrypted at rest using AES-256-GCM (`iv:authTag:ciphertext`).
+   - Tokens are never returned to frontend responses or embedded into client cookies.
+2. **Server-Side Authorization Gates**:
+   - The publishing engine validates both Organization ID and Workspace ID on both the `Post` and the destination `SocialAccount`. Cross-tenant publishing attempts are blocked with HTTP 403 Forbidden.
+3. **Signed Webhook & Worker Ingress**:
+   - Inngest webhooks (`/api/inngest`) validate request signatures against `INNGEST_SIGNING_KEY`.
+   - Cron trigger routes (`/api/publishing/cron`) are protected by bearer token authentication (`CRON_SECRET`).
+4. **Media Signed URLs**:
+   - Social media assets staging uses temporary pre-signed URLs (24-hour expiration) rather than permanent public exposure.
+

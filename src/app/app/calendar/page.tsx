@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,29 +14,115 @@ import {
   Filter,
   Clock,
   Eye,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  RotateCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface PostItem {
+  id: string;
+  content: string;
+  status: string;
+  scheduledAt: string | null;
+  createdAt: string;
+  variants: Array<{
+    id: string;
+    platform: string;
+    caption: string;
+    status: string;
+    socialAccount?: {
+      accountName: string;
+    };
+  }>;
+}
+
 export default function VisualCalendarPage() {
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
-  const [currentMonth, setCurrentMonth] = useState("November 2026");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [posts, setPosts] = useState<PostItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
 
-  // Sample scheduled posts for visual calendar demonstration
-  const calendarPosts = [
-    { day: 16, time: "16:30", platform: "x", title: "Product Feature Drop 🚀", status: "scheduled" },
-    { day: 17, time: "10:00", platform: "linkedin", title: "Engineering Blog Recap", status: "scheduled" },
-    { day: 19, time: "14:15", platform: "instagram", title: "Behind the scenes story", status: "scheduled" },
-    { day: 20, time: "11:00", platform: "x", title: "Weekly community Q&A thread", status: "scheduled" },
-    { day: 24, time: "09:00", platform: "linkedin", title: "B2B Social Playbook", status: "scheduled" },
-    { day: 26, time: "18:00", platform: "youtube", title: "Feature Walkthrough Video", status: "scheduled" },
-  ];
+  const loadCalendarPosts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/publishing/posts?view=calendar");
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(data.posts || []);
+      }
+    } catch (err: any) {
+      console.error("Failed to load calendar posts:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCalendarPosts();
+  }, []);
+
+  const handlePrev = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "month") d.setMonth(d.getMonth() - 1);
+    else if (viewMode === "week") d.setDate(d.getDate() - 7);
+    else d.setDate(d.getDate() - 1);
+    setCurrentDate(d);
+  };
+
+  const handleNext = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "month") d.setMonth(d.getMonth() + 1);
+    else if (viewMode === "week") d.setDate(d.getDate() + 7);
+    else d.setDate(d.getDate() + 1);
+    setCurrentDate(d);
+  };
+
+  const handleReschedule = async (postId: string, newDateString: string) => {
+    try {
+      const res = await fetch(`/api/publishing/posts/${postId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledAt: new Date(newDateString).toISOString() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Rescheduling failed.");
+      }
+      toast.success("Post successfully rescheduled!");
+      loadCalendarPosts();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  // Filter posts
+  const filteredPosts = posts.filter((p) => {
+    if (selectedPlatform === "all") return true;
+    return p.variants.some((v) => v.platform.toLowerCase() === selectedPlatform.toLowerCase());
+  });
+
+  // Month calculations
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const monthName = currentDate.toLocaleString("default", { month: "long" });
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
 
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  // 30 days in November, starting on Sunday (1) for display simulation
-  const calendarDays = Array.from({ length: 30 }, (_, i) => i + 1);
 
-  const handleDragMock = (day: number) => {
-    toast.success(`Post rescheduled to Nov ${day}, 2026 (drag-and-drop simulated).`);
+  // Helper to map posts to days
+  const getPostsForDay = (day: number) => {
+    return filteredPosts.filter((p) => {
+      const targetDate = p.scheduledAt ? new Date(p.scheduledAt) : new Date(p.createdAt);
+      return (
+        targetDate.getFullYear() === year &&
+        targetDate.getMonth() === month &&
+        targetDate.getDate() === day
+      );
+    });
   };
 
   return (
@@ -49,7 +135,7 @@ export default function VisualCalendarPage() {
             <span>Visual Content Calendar</span>
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Plan, organize, and drag-and-drop scheduled social broadcasts across all channels.
+            Real database-backed visual scheduling with platform filtering and rescheduling.
           </p>
         </div>
 
@@ -97,114 +183,179 @@ export default function VisualCalendarPage() {
         </div>
       </div>
 
-      {/* Calendar Filter & Navigation Bar */}
-      <div className="flex items-center justify-between p-3 rounded-xl border bg-card shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8">
+      {/* Navigation and Filters */}
+      <Card className="p-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrev}
+              className="p-1.5 rounded-lg border hover:bg-muted text-muted-foreground"
+            >
               <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8">
+            </button>
+            <span className="font-bold text-foreground">
+              {monthName} {year}
+            </span>
+            <button
+              onClick={handleNext}
+              className="p-1.5 rounded-lg border hover:bg-muted text-muted-foreground"
+            >
               <ChevronRight className="w-4 h-4" />
-            </Button>
+            </button>
+            <button
+              onClick={() => setCurrentDate(new Date())}
+              className="text-xs px-2 py-1 rounded border hover:bg-muted text-muted-foreground"
+            >
+              Today
+            </button>
           </div>
-          <span className="font-bold text-sm text-foreground">{currentMonth}</span>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+          <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>Filter Channels (All)</span>
-          </Button>
-          <Badge variant="purple" className="text-xs">UTC Timezone</Badge>
+            <span className="text-xs text-muted-foreground">Filter:</span>
+            <select
+              value={selectedPlatform}
+              onChange={(e) => setSelectedPlatform(e.target.value)}
+              className="text-xs rounded border bg-background px-2 py-1"
+            >
+              <option value="all">All Channels</option>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="youtube">YouTube</option>
+              <option value="pinterest">Pinterest</option>
+            </select>
+            <button
+              onClick={loadCalendarPosts}
+              className="p-1 rounded border hover:bg-muted text-muted-foreground"
+              title="Refresh"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Monthly Grid View */}
-      {viewMode === "month" && (
-        <Card className="p-0 overflow-hidden shadow-sm">
-          {/* Day Headers */}
-          <div className="grid grid-cols-7 border-b bg-muted/40 text-center py-2 text-xs font-semibold text-muted-foreground">
+      {/* Calendar Grid View */}
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
+          <span className="text-sm">Loading calendar posts from database...</span>
+        </div>
+      ) : viewMode === "month" ? (
+        <Card className="p-4 overflow-hidden">
+          {/* Days of Week Header */}
+          <div className="grid grid-cols-7 gap-2 pb-2 border-b border-border text-center text-xs font-semibold text-muted-foreground">
             {daysOfWeek.map((day) => (
-              <div key={day}>{day}</div>
+              <div key={day} className="py-1">
+                {day}
+              </div>
             ))}
           </div>
 
-          {/* Calendar Cells */}
-          <div className="grid grid-cols-7 divide-x divide-y border-b">
-            {calendarDays.map((day) => {
-              const dayPosts = calendarPosts.filter((p) => p.day === day);
-              const isToday = day === 16;
+          {/* Month Days Grid */}
+          <div className="grid grid-cols-7 gap-2 pt-2">
+            {/* Blank leading slots */}
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div key={`blank-${i}`} className="min-h-[100px] rounded-lg bg-muted/10 p-1 opacity-40 border border-transparent" />
+            ))}
+
+            {/* Actual Month Days */}
+            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+              const dayPosts = getPostsForDay(day);
+              const isToday =
+                new Date().getDate() === day &&
+                new Date().getMonth() === month &&
+                new Date().getFullYear() === year;
 
               return (
                 <div
                   key={day}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDragMock(day)}
-                  className={`min-h-[110px] p-2 flex flex-col justify-between transition-colors hover:bg-muted/20 ${
-                    isToday ? "bg-violet-600/[0.03]" : ""
+                  className={`min-h-[110px] rounded-lg border p-1.5 flex flex-col justify-between transition-colors ${
+                    isToday ? "border-violet-500/60 bg-violet-950/10" : "border-border/60 bg-card hover:bg-muted/30"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
-                        isToday
-                          ? "bg-violet-600 text-white"
-                          : "text-muted-foreground"
-                      }`}
-                    >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={`font-semibold ${isToday ? "text-violet-400 font-bold" : "text-muted-foreground"}`}>
                       {day}
                     </span>
-                    <Link
-                      href={`/app/create?date=2026-11-${day < 10 ? "0" + day : day}`}
-                      className="opacity-0 hover:opacity-100 text-muted-foreground hover:text-foreground"
-                      title="Add post to this day"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </Link>
+                    {dayPosts.length > 0 && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                        {dayPosts.length}
+                      </Badge>
+                    )}
                   </div>
 
-                  {/* Scheduled Items for this day */}
-                  <div className="space-y-1 my-1">
-                    {dayPosts.map((post, idx) => (
-                      <div
-                        key={idx}
-                        draggable
-                        onDragStart={() => toast.info("Drag item to another calendar day to reschedule.")}
-                        className="p-1.5 rounded-lg border bg-card text-[11px] shadow-xs cursor-grab active:cursor-grabbing hover:border-violet-500/40 flex items-center gap-1.5 transition-all truncate"
-                      >
-                        <PlatformIcon platform={post.platform} size={12} className="shrink-0" />
-                        <span className="truncate font-medium text-foreground">{post.title}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Day Posts List */}
+                  <div className="space-y-1 mt-1 overflow-y-auto max-h-[80px]">
+                    {dayPosts.map((post) => {
+                      const platform = post.variants[0]?.platform?.toLowerCase() || "x";
+                      const statusColor =
+                        post.status === "PUBLISHED"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : post.status === "PARTIALLY_PUBLISHED"
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : post.status === "FAILED"
+                          ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                          : "bg-violet-500/10 text-violet-300 border-violet-500/20";
 
-                  <div className="text-[10px] text-muted-foreground text-right">
-                    {dayPosts.length > 0 && `${dayPosts.length} post`}
+                      return (
+                        <div
+                          key={post.id}
+                          className={`text-[10px] p-1 rounded border flex items-center gap-1 truncate ${statusColor}`}
+                          title={`${post.content} (${post.status})`}
+                        >
+                          <PlatformIcon platform={platform} className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{post.content.slice(0, 20)}...</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
           </div>
         </Card>
-      )}
-
-      {/* Week / Day View Placeholder */}
-      {viewMode !== "month" && (
-        <Card className="p-8 text-center text-muted-foreground text-sm">
-          <Clock className="w-8 h-8 text-violet-500 mx-auto mb-2" />
-          <h3 className="font-semibold text-foreground text-base mb-1">
-            {viewMode === "week" ? "Weekly Time Slots" : "Daily Queue View"}
-          </h3>
-          <p className="max-w-md mx-auto text-xs">
-            Detailed hourly time grid view showing exact queue placement for November 2026.
-          </p>
-          <Button variant="outline" size="sm" onClick={() => setViewMode("month")} className="mt-4">
-            Switch back to Month view
-          </Button>
+      ) : (
+        /* Week & Day List Mode */
+        <Card className="p-4 space-y-3">
+          <div className="text-sm font-semibold text-foreground">
+            {viewMode === "week" ? "Week View Agenda" : "Day View Agenda"}
+          </div>
+          {filteredPosts.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-8 text-center">
+              No posts scheduled for this period.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="p-3 rounded-lg border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <PlatformIcon
+                      platform={post.variants[0]?.platform?.toLowerCase() || "x"}
+                      className="w-4 h-4"
+                    />
+                    <div>
+                      <p className="text-xs font-medium text-foreground">{post.content}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {post.scheduledAt
+                          ? `Scheduled: ${new Date(post.scheduledAt).toLocaleString()}`
+                          : `Created: ${new Date(post.createdAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={post.status === "PUBLISHED" ? "default" : "secondary"}>
+                    {post.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
     </div>
   );
 }
-

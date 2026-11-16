@@ -461,3 +461,155 @@ enum ConnectionStatus {
 - **Prisma Context**: Because NestJS connects using a dedicated database role with full schema access, PostgreSQL RLS policies do not replace backend authorization checks.
 - **Defense in Depth**: Supabase RLS policies are created on sensitive tables (`User`, `Organization`, `Integration`, `Post`) with tenant scoping (`organization_id = auth.jwt() ->> 'org_id'`).
 - **Zero-Trust Backend**: Every Prisma repository query strictly mandates `where: { organizationId }` derived from the validated server session.
+
+---
+
+## 5. Priority 5: Social Publishing & Scheduling Schema
+
+```prisma
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  QUEUED
+  PUBLISHING
+  PUBLISHED
+  PARTIALLY_PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum PostType {
+  STANDARD
+  CAROUSEL
+  REEL
+  SHORT
+  STORY
+  THREAD
+}
+
+enum PublishJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AttemptOutcome {
+  SUCCESS
+  TRANSIENT_FAILURE
+  PERMANENT_FAILURE
+}
+
+model Post {
+  id             String        @id @default(uuid())
+  organizationId String
+  workspaceId    String
+  createdById    String
+  content        String
+  postType       PostType      @default(STANDARD)
+  status         PostStatus    @default(DRAFT)
+  scheduledAt    DateTime?
+  timezone       String        @default("UTC")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      Profile       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  variants       PostVariant[]
+
+  @@index([organizationId])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model PostVariant {
+  id               String        @id @default(uuid())
+  postId           String
+  socialAccountId  String
+  platform         SocialProvider
+  caption          String
+  mediaConfig      Json?
+  platformMetadata Json?
+  status           PostStatus    @default(DRAFT)
+  externalPostId   String?
+  publishedAt      DateTime?
+  errorMessage     String?
+  retryCount       Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  post             Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  jobs             PublishJob[]
+
+  @@index([postId])
+  @@index([socialAccountId])
+  @@index([platform])
+  @@index([status])
+}
+
+model PublishJob {
+  id             String           @id @default(uuid())
+  postVariantId  String
+  scheduledAt    DateTime
+  status         PublishJobStatus @default(PENDING)
+  attemptCount   Int              @default(0)
+  maxRetries     Int              @default(5)
+  nextRetryAt    DateTime?
+  idempotencyKey String           @unique
+  workerEventId  String?
+  createdAt      DateTime         @default(now())
+  completedAt    DateTime?
+
+  postVariant    PostVariant      @relation(fields: [postVariantId], references: [id], onDelete: Cascade)
+  attempts       PublishAttempt[]
+
+  @@index([postVariantId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([idempotencyKey])
+}
+
+model PublishAttempt {
+  id                 String         @id @default(uuid())
+  jobId              String
+  attemptNumber      Int
+  startedAt          DateTime       @default(now())
+  completedAt        DateTime?
+  outcome            AttemptOutcome
+  providerErrorCode  String?
+  safeErrorMessage   String?
+  externalResponseId String?
+
+  job                PublishJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([outcome])
+  @@index([startedAt])
+}
+
+model Notification {
+  id             String       @id @default(uuid())
+  organizationId String
+  workspaceId    String
+  type           String
+  title          String
+  message        String
+  read           Boolean      @default(false)
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([workspaceId])
+  @@index([type])
+  @@index([createdAt])
+}
+```
+

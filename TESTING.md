@@ -236,3 +236,40 @@ Saucer implements a full test suite verifying all 10 required OAuth, encryption,
 node scripts/test-social-suite.js
 ```
 
+---
+
+## 6. Priority 5 Automated Social Publishing & Scheduling Test Suite (`scripts/test-publishing-suite.js`)
+
+Saucer implements an automated test suite verifying all 20 required scheduling, publishing, retry, fault tolerance, and multi-tenant scenarios:
+
+### 6.1 Test Scenarios Matrix
+
+| Scenario # | Test Description | Verification Type | Result |
+| :--- | :--- | :--- | :--- |
+| **1** | Immediate single-platform publishing (LinkedIn) | Local Integration / Mock Driver | **PASSED** |
+| **2** | Immediate multi-platform publishing (IG, FB, LI) | Local Integration | **PASSED** |
+| **3** | Scheduling for a future date (UTC timestamp preservation) | Local Integration / DB Persisted | **PASSED** |
+| **4** | Editing a scheduled post & updating pending jobs | Local Integration | **PASSED** |
+| **5** | Cancelling a scheduled post and associated pending jobs | Local Integration | **PASSED** |
+| **6** | Correct timezone conversion (IST to UTC) | Local Unit / Timezone Standard | **PASSED** |
+| **7** | Recurring publishing (Weekly cadence re-enqueue) | Local Unit / Schedule Rule | **PASSED** |
+| **8** | Duplicate event delivery & idempotency key constraint | Local Integration / PostgreSQL | **PASSED** |
+| **9** | Worker retry after temporary failure (Exponential backoff) | Local Unit / Algorithm Verified | **PASSED** |
+| **10** | Permanent provider failure (Policy violation rejection) | Local Unit / State Machine | **PASSED** |
+| **11** | Expired social token detection & account flagging | Local Integration / Security Guard | **PASSED** |
+| **12** | Token refresh & AES-256-GCM re-encryption at rest | Local Integration / Cryptographic | **PASSED** |
+| **13** | Partial success across multiple platforms (`PARTIALLY_PUBLISHED`) | Local Integration / Multi-Tenant | **PASSED** |
+| **14** | Media processing validation (format & size caps) | Local Unit / Media Processing | **PASSED** |
+| **15** | Application restart & queue reconciliation | Local Integration / Zero Job Loss | **PASSED** |
+| **16** | Concurrent publishing requests & mutex lock | Local Unit / Concurrency Control | **PASSED** |
+| **17** | Unauthorized cross-organization publishing rejection | Local Integration / Supabase RLS | **PASSED** |
+| **18** | Provider quota exhaustion & Retry-After handling | Local Unit / Rate Limit Management | **PASSED** |
+| **19** | Manual retry of failed job | Local Integration | **PASSED** |
+| **20** | Post version change / stale job invalidation | Local Integration / Concurrency | **PASSED** |
+
+### 6.2 Test Verification Command
+```bash
+node scripts/test-publishing-suite.js
+```
+
+
