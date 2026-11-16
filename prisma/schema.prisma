@@ -1,4 +1,4 @@
-// Saucer Database Foundation — Phase 1
+// Saucer Database Foundation — Phase 2: Gemini AI Engine & Credit Ledger
 // Provider: Supabase PostgreSQL via Prisma ORM
 
 generator client {
@@ -23,6 +23,24 @@ enum WorkspaceRole {
   VIEWER
 }
 
+enum ReservationStatus {
+  RESERVED
+  COMMITTED
+  RELEASED
+  EXPIRED
+  RECONCILIATION_REQUIRED
+}
+
+enum LedgerEntryType {
+  ALLOWANCE_GRANT
+  PURCHASE_GRANT
+  RESERVATION_HOLD
+  SETTLEMENT_DEBIT
+  REFUND_CREDIT
+  EXPIRATION_RELEASE
+  MONTHLY_RESET
+}
+
 model Profile {
   id                  String               @id @default(uuid())
   supabaseUserId      String               @unique
@@ -41,15 +59,18 @@ model Profile {
 }
 
 model Organization {
-  id                  String               @id @default(uuid())
-  name                String
-  slug                String               @unique
-  logoUrl             String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id                    String                @id @default(uuid())
+  name                  String
+  slug                  String                @unique
+  logoUrl               String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
-  members             OrganizationMember[]
-  workspaces          Workspace[]
+  members               OrganizationMember[]
+  workspaces            Workspace[]
+  aiCreditBalance       AiCreditBalance?
+  aiCreditReservations  AiCreditReservation[]
+  aiCreditLedgerEntries AiCreditLedgerEntry[]
 
   @@index([slug])
 }
@@ -102,3 +123,83 @@ model WorkspaceMember {
   @@index([profileId])
 }
 
+// ----------------------------------------------------
+// AI CREDIT LEDGER ARCHITECTURE (DOUBLE-ENTRY ACCOUNTING)
+// ----------------------------------------------------
+
+model AiCreditBalance {
+  id                 String       @id @default(uuid())
+  organizationId     String       @unique
+  monthlyAllowance   Int          @default(50)
+  monthlyUsed        Int          @default(0)
+  reservedCredits    Int          @default(0)
+  purchasedCredits   Int          @default(0)
+  billingPeriodStart DateTime     @default(now())
+  billingPeriodEnd   DateTime
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model AiCreditReservation {
+  id                String            @id @default(uuid())
+  organizationId    String
+  userId            String
+  operation         String
+  requestedCredits  Int
+  reservationStatus ReservationStatus @default(RESERVED)
+  idempotencyKey    String            @unique
+  createdAt         DateTime          @default(now())
+  expiresAt         DateTime
+  settledAt         DateTime?
+
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([reservationStatus])
+  @@index([expiresAt])
+}
+
+model AiCreditLedgerEntry {
+  id             String          @id @default(uuid())
+  organizationId String
+  reservationId  String?
+  entryType      LedgerEntryType
+  debitAccount   String
+  creditAccount  String
+  amount         Int
+  model          String?
+  feature        String?
+  inputTokens    Int?
+  outputTokens   Int?
+  providerCost   Float           @default(0.0)
+  idempotencyKey String          @unique
+  createdAt      DateTime        @default(now())
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([reservationId])
+  @@index([entryType])
+  @@index([createdAt])
+}
+
+// ----------------------------------------------------
+// DISTRIBUTED GLOBAL QUOTA CONTROLLER
+// ----------------------------------------------------
+
+model AiGlobalQuota {
+  id                       String   @id @default("global")
+  requestsThisMinute       Int      @default(0)
+  tokensThisMinute         Int      @default(0)
+  requestsToday            Int      @default(0)
+  activeConcurrentRequests Int      @default(0)
+  lastResetMinute          DateTime @default(now())
+  lastResetDay             DateTime @default(now())
+  killSwitchActive         Boolean  @default(false)
+  updatedAt                DateTime @updatedAt
+}

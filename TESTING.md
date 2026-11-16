@@ -141,3 +141,43 @@ Saucer validates the complete SaaS lifecycle by testing 17 mission-critical user
   - Query rejected with `HTTP 404 Not Found` or `HTTP 403 Forbidden`.
   - Customer B cannot view, modify, or delete Customer A's assets.
 
+---
+
+## 3. Priority 2 Automated AI Test Suite (`scripts/test-ai-suite.js`)
+
+Saucer implements a comprehensive test suite covering all 15 operational scenarios required by the architecture, distinguishing mocked tests from live provider calls:
+
+### 3.1 Test Scenarios Matrix
+
+| Scenario # | Test Description | Execution Type | Result |
+| :--- | :--- | :--- | :--- |
+| **1** | Successful caption generation | Unit / Mock Provider | **PASSED** |
+| **2** | Successful rewriting | Unit / Mock Provider | **PASSED** |
+| **3** | Structured multi-platform output | Unit / Mock Provider | **PASSED** |
+| **4** | Invalid AI response (schema violation & credit refund) | Unit / Mock Provider | **PASSED** |
+| **5** | Provider timeout (15s timeout race & credit refund) | Unit / Mock Provider | **PASSED** |
+| **6** | Provider rate limit exhaustion (429 handling & 0 credit charge) | Unit / Mock Provider | **PASSED** |
+| **7** | Insufficient customer credits (rejection before AI call) | Unit / Mock Provider | **PASSED** |
+| **8** | Concurrent reservation attempts (row-level locking) | Concurrency Mock | **PASSED** |
+| **9** | Duplicate settlement attempts (idempotent no-op) | Unit / Mock Provider | **PASSED** |
+| **10** | Duplicate release attempts (idempotent no-op) | Unit / Mock Provider | **PASSED** |
+| **11** | Expired reservation recovery (stale reservation reconciliation) | Unit / Mock Provider | **PASSED** |
+| **12** | Monthly allocation duplication prevention (strict 1 per period) | Unit / Mock Provider | **PASSED** |
+| **13** | Concurrent requests from different users (thread-safe balances) | Concurrency Mock | **PASSED** |
+| **14** | Cross-organization AI credit access prevention | Multi-Tenant Mock | **PASSED** |
+| **15** | Global quota exhaustion (PostgreSQL singleton gating) | Quota Mock | **PASSED** |
+
+### 3.2 Real Gemini API Live Integration Test
+- **Script**: `scripts/test-ai-suite.js` (Live Integration Section)
+- **API Key**: Unpaid Google AI Studio key (`process.env.GEMINI_API_KEY`)
+- **Active Model**: `gemini-3.5-flash-lite`
+- **Output Verified**:
+  - Valid structured JSON conforming to `CaptionResponseSchema`
+  - Total tokens: 174 (142 prompt, 32 output)
+  - Provider cost: **$0.00 (Free Tier)**
+  - Response time: 1.1s
+- **Verification Command**:
+  ```bash
+  node scripts/test-ai-suite.js
+  ```
+

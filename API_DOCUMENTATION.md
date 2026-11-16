@@ -205,17 +205,18 @@ This document provides the complete API specification for **Saucer**, covering b
 
 ---
 
-## 5. Saucer AI Content Studio (`/api/v1/copilot`)
+## 5. Saucer AI Content Engine (`/api/ai/*`)
 
-### 5.1 Generate Platform Captions
-- **Endpoint**: `POST /copilot/generate-caption`
-- **Access**: Authenticated
-- **Policy Check**: `[Create, Sections.AI]`
+All AI endpoints execute server-side using Google Gemini free-tier models (`gemini-3.8-flash` primary, `gemini-3.5-flash-lite` fallback). Every request validates user auth, checks global quota, atomically reserves credits, calls Gemini, validates response structure with Zod, and settles credits on success (or releases on failure).
+
+### 5.1 Generate Quick Caption
+- **Endpoint**: `POST /api/ai/caption`
+- **Cost**: 1 credit
 - **Request Body**:
 ```json
 {
-  "topic": "Introducing automated AI scheduling for marketing agencies",
-  "targetPlatform": "linkedin",
+  "topic": "Announcing our new AI scheduling feature",
+  "platform": "linkedin",
   "tone": "professional",
   "includeHashtags": true,
   "includeEmojis": true
@@ -224,36 +225,233 @@ This document provides the complete API specification for **Saucer**, covering b
 - **Response (200 OK)**:
 ```json
 {
-  "caption": "Managing multi-channel social distribution requires speed, precision, and reliable tooling...",
-  "suggestedHashtags": ["#SocialMediaSaaS", "#MarketingAutomation", "#AgencyGrowth"],
+  "success": true,
+  "data": {
+    "caption": "Managing multi-channel social distribution requires speed and precision...",
+    "hashtags": ["#SocialMediaSaaS", "#MarketingAutomation", "#AgencyGrowth"],
+    "emojis": ["🚀", "📈", "💡"],
+    "characterCount": 384
+  },
+  "modelUsed": "gemini-3.5-flash-lite",
   "creditsDeducted": 1,
-  "remainingCredits": 499
+  "balance": {
+    "available": 49,
+    "monthlyAllowance": 50,
+    "monthlyUsed": 1,
+    "reserved": 0,
+    "purchased": 0
+  }
 }
 ```
 
-### 5.2 Generate Viral Thread
-- **Endpoint**: `POST /copilot/generate-thread`
-- **Access**: Authenticated
+### 5.2 Generate Hashtags and Emojis
+- **Endpoint**: `POST /api/ai/hashtags`
+- **Cost**: 1 credit
 - **Request Body**:
 ```json
 {
-  "topic": "5 rules for building an organic B2B audience in 2026",
-  "postCount": 5
+  "content": "Launching our new SaaS product today! Let us know what you think.",
+  "platform": "twitter",
+  "count": 5
 }
 ```
-- **Response (200 OK)**: Array of formatted string posts structured as a cohesive thread.
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "hashtags": ["#SaaS", "#ProductLaunch", "#TechStartup", "#IndieHacker", "#BuildInPublic"],
+    "emojis": ["🚀", "🎉", "🔥"]
+  },
+  "creditsDeducted": 1
+}
+```
 
-### 5.3 Query Organization AI Credit Balance
-- **Endpoint**: `GET /copilot/credits`
+### 5.3 Tone Rewriter
+- **Endpoint**: `POST /api/ai/rewrite`
+- **Cost**: 1 credit
+- **Request Body**:
+```json
+{
+  "content": "Our software has new updates and it is faster now.",
+  "tone": "bold",
+  "targetLength": "same"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "rewritten": "We didn't just update the platform — we engineered it for unmatched velocity.",
+    "tone": "bold",
+    "notes": "Sharpened vocabulary and active framing."
+  },
+  "creditsDeducted": 1
+}
+```
+
+### 5.4 Multi-Platform Content Adaptation
+- **Endpoint**: `POST /api/ai/adapt`
+- **Cost**: 2 credits
+- **Request Body**:
+```json
+{
+  "sourceContent": "We raised a seed round to build the future of social automation.",
+  "sourcePlatform": "linkedin",
+  "targetPlatforms": ["twitter", "linkedin", "instagram"]
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "adaptations": [
+      {
+        "platform": "twitter",
+        "content": "Excited to share we just closed our seed round to build the future of social automation! 🚀",
+        "characterCount": 94,
+        "hashtags": ["#seedround", "#buildinpublic"]
+      },
+      {
+        "platform": "linkedin",
+        "content": "Today marks an exciting milestone: we've closed our seed round to accelerate the future of social automation...",
+        "characterCount": 350,
+        "hashtags": ["#VentureCapital", "#StartupFunding", "#Automation"]
+      }
+    ]
+  },
+  "creditsDeducted": 2
+}
+```
+
+### 5.5 Viral Thread Generation
+- **Endpoint**: `POST /api/ai/thread`
+- **Cost**: 3 credits
+- **Request Body**:
+```json
+{
+  "topic": "7 mental models every founder needs in 2026",
+  "postCount": 7,
+  "platform": "twitter",
+  "hookStyle": "contrarian"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "hook": "95% of founders make decisions using intuition instead of mental models. Here are 7 frameworks:",
+    "posts": [
+      { "postNumber": 1, "content": "1. Inversion...", "characterCount": 180 },
+      { "postNumber": 2, "content": "2. Second-Order Thinking...", "characterCount": 210 }
+    ],
+    "callToAction": "If you found this valuable, retweet the first post and follow for more.",
+    "totalPosts": 7
+  },
+  "creditsDeducted": 3
+}
+```
+
+### 5.6 Image-to-Caption Vision Analysis
+- **Endpoint**: `POST /api/ai/vision`
+- **Cost**: 2 credits
+- **Request Body**:
+```json
+{
+  "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "mimeType": "image/png",
+  "platform": "instagram",
+  "tone": "casual"
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "description": "Minimalist red square emblem with crisp margins.",
+    "suggestedCaptions": [
+      "Simplicity speaks louder than noise. ✨",
+      "Less is more. What's your creative philosophy?"
+    ],
+    "altText": "A solid red square graphic on a clean white background.",
+    "suggestedHashtags": ["#minimalism", "#designinspo", "#creative"]
+  },
+  "creditsDeducted": 2
+}
+```
+
+### 5.7 7-Day Content Calendar Ideation
+- **Endpoint**: `POST /api/ai/calendar`
+- **Cost**: 5 credits
+- **Request Body**:
+```json
+{
+  "niche": "B2B SaaS Growth Marketing",
+  "targetAudience": "Early-stage startup founders and growth leads",
+  "pillars": ["Product Tips", "Customer Stories", "Industry Insights"]
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "overview": "7-day thought leadership campaign emphasizing tactical insights and founder transparency.",
+    "days": [
+      {
+        "day": 1,
+        "theme": "Monday Motivation & Industry Metric",
+        "postIdea": "Share one surprising SaaS churn statistic and how to counter it.",
+        "suggestedPlatform": "linkedin",
+        "bestTime": "08:30 AM"
+      }
+    ]
+  },
+  "creditsDeducted": 5
+}
+```
+
+### 5.8 Query AI Credits Balance
+- **Endpoint**: `GET /api/ai/credits`
 - **Access**: Authenticated
 - **Response (200 OK)**:
 ```json
 {
-  "totalAllowance": 500,
-  "usedCredits": 42,
-  "availableCredits": 458,
-  "bonusCredits": 0,
-  "resetAt": "2026-12-01T00:00:00Z"
+  "success": true,
+  "balance": {
+    "available": 49,
+    "monthlyAllowance": 50,
+    "monthlyUsed": 1,
+    "reserved": 0,
+    "purchased": 0,
+    "billingPeriodEnd": "2026-12-16T21:49:00.000Z"
+  }
+}
+```
+
+### 5.9 Query AI Ledger & Audit Usage History
+- **Endpoint**: `GET /api/ai/usage`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "usage": [
+    {
+      "id": "led_3389028",
+      "entryType": "USAGE_SETTLEMENT",
+      "feature": "caption",
+      "model": "gemini-3.5-flash-lite",
+      "amount": 1,
+      "inputTokens": 142,
+      "outputTokens": 86,
+      "createdAt": "2026-11-16T22:15:30.000Z"
+    }
+  ]
 }
 ```
 

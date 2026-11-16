@@ -213,61 +213,100 @@ model Post {
 }
 ```
 
-### 3.4 Saucer AI Credit Ledger
+### 3.4 Saucer AI Credit Ledger & Quota Control (Double-Entry Accounting)
 
 ```prisma
 model AiCreditBalance {
-  id              String       @id @default(uuid())
-  organizationId  String       @unique
-  totalAllowance  Int          // Base monthly allowance by subscription tier
-  usedCredits     Int          @default(0)
-  reservedCredits Int          @default(0) // Locked during active generation
-  bonusCredits    Int          @default(0) // Non-expiring purchased add-on credits
-  resetAt         DateTime     // Next monthly reset timestamp
-  updatedAt       DateTime     @updatedAt
+  id                 String       @id @default(uuid())
+  organizationId     String       @unique
+  monthlyAllowance   Int          @default(50)
+  monthlyUsed        Int          @default(0)
+  reservedCredits    Int          @default(0)
+  purchasedCredits   Int          @default(0)
+  billingPeriodStart DateTime     @default(now())
+  billingPeriodEnd   DateTime
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
 }
 
-model AiCreditTransaction {
-  id             String             @id @default(uuid())
-  organizationId String
-  amount         Int                // Credits involved (negative for deductions/holds)
-  type           CreditTxType       // ALLOCATION, RESERVATION, COMMIT, REFUND, PURCHASE, EXPIRED_RELEASE
-  status         CreditTxStatus     // PENDING, SETTLED, CANCELLED, EXPIRED
-  feature        String             // "caption_generation", "thread_generator", "rewriter"
-  model          String             // "gemini-3.8-flash", "gemini-3.5-flash-lite"
-  inputTokens    Int                @default(0)
-  outputTokens   Int                @default(0)
-  idempotencyKey String             @unique
-  expiresAt      DateTime           // Auto-expiry timestamp (now + 5 minutes)
-  metadata       String?            // JSON audit details
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+model AiCreditReservation {
+  id                String            @id @default(uuid())
+  organizationId    String
+  userId            String
+  operation         String
+  requestedCredits  Int
+  reservationStatus ReservationStatus @default(RESERVED)
+  idempotencyKey    String            @unique
+  createdAt         DateTime          @default(now())
+  expiresAt         DateTime
+  settledAt         DateTime?
 
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId, createdAt])
-  @@index([status, expiresAt])
+  @@index([organizationId, reservationStatus])
   @@index([idempotencyKey])
 }
 
-enum CreditTxType {
-  ALLOCATION
-  RESERVATION
-  COMMIT
-  REFUND
-  PURCHASE
-  EXPIRED_RELEASE
+model AiCreditLedgerEntry {
+  id             String          @id @default(uuid())
+  organizationId String
+  reservationId  String?
+  entryType      LedgerEntryType
+  debitAccount   String
+  creditAccount  String
+  amount         Int
+  model          String?
+  feature        String?
+  inputTokens    Int             @default(0)
+  outputTokens   Int             @default(0)
+  providerCost   Float           @default(0.0) // 0.00 on free tier
+  idempotencyKey String          @unique
+  createdAt      DateTime        @default(now())
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([reservationId])
+  @@index([idempotencyKey])
 }
 
-enum CreditTxStatus {
-  PENDING
-  SETTLED
-  CANCELLED
+model AiGlobalQuota {
+  id                  String   @id @default("global-quota-controller")
+  rpmLimit            Int      @default(15)
+  requestsThisMinute  Int      @default(0)
+  currentMinuteWindow DateTime @default(now())
+  tpmLimit            Int      @default(1000000)
+  tokensThisMinute    Int      @default(0)
+  rpdLimit            Int      @default(1500)
+  requestsToday       Int      @default(0)
+  currentDayWindow    DateTime @default(now())
+  maxConcurrency      Int      @default(5)
+  activeRequests      Int      @default(0)
+  isKillSwitchActive  Boolean  @default(false)
+  killSwitchReason    String?
+  updatedAt           DateTime @updatedAt
+}
+
+enum ReservationStatus {
+  RESERVED
+  COMMITTED
+  RELEASED
   EXPIRED
+  RECONCILIATION_REQUIRED
+}
+
+enum LedgerEntryType {
+  MONTHLY_ALLOCATION
+  CREDIT_PURCHASE
+  RESERVATION_HOLD
+  USAGE_SETTLEMENT
+  RESERVATION_RELEASE
+  PLAN_CHANGE_ADJUSTMENT
+  ADMIN_ADJUSTMENT
 }
 ```
 

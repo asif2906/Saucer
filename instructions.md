@@ -1,150 +1,357 @@
-# SAUCER — PHASE 2: REAL BACKEND INTEGRATION
+# SAUCER — PRIORITY 2: GEMINI AI ENGINE & CREDIT LEDGER
 
-Phase 1 is complete according to PHASE_1_REPORT.md.
+Supabase Priority 1 has been implemented and tested.
 
-We are now moving from frontend development to real backend functionality.
+We are now implementing Saucer AI as a real backend service.
 
-Before implementation, inspect the existing Phase 1 codebase and all project documentation.
+Read the existing Saucer documentation and source code before making changes.
 
-Do not rebuild the frontend or change the Saucer visual identity.
+This is an implementation task, not another architecture-only exercise.
 
-## PRIORITY 1 — SUPABASE
+## BUSINESS CONSTRAINTS
 
-Implement real Supabase integration.
+These are mandatory:
 
-- Real registration and login.
-- Email verification.
-- Persistent sessions.
-- Password recovery.
-- Protected routes.
-- User profile persistence.
-- Organization creation.
-- Workspace creation.
-- Organization membership.
-- Workspace membership.
-- Role-based authorization.
-- Row Level Security.
+- Zero budget for AI API consumption.
+- Google Gemini API through its unpaid API tier only.
+- No paid AI model fallback.
+- No BYOK requirement for customers.
+- No automatic billing activation.
+- No paid image generation.
+- No paid video generation.
+- All AI requests must use our server-side API key.
+- Customers receive AI allowances according to their subscription.
+- Internal credit balances must be enforced server-side.
 
-Test complete signup-to-dashboard functionality.
+## STEP 1 — VERIFY GEMINI MODELS
 
-Verify that one user's data cannot be accessed by another user.
+Inspect Google's current official documentation before implementation.
 
-## PRIORITY 2 — SAUCER AI
+Our initial model preferences:
 
-Implement the actual Gemini API integration.
+- gemini-3.8-flash
+- gemini-3.5-flash-lite
 
-- Use only eligible Google AI Studio free-tier models.
-- Use our server-side GEMINI_API_KEY.
-- Implement a modular AI provider.
-- Implement the global quota controller using persistent shared coordination, not process-local memory.
-- Add RPM, TPM, RPD and concurrency protection.
-- Implement proper 429 handling.
-- Never automatically activate a paid provider.
+Verify:
+- Model availability.
+- API model identifiers.
+- Text generation support.
+- Structured output support.
+- Image input support.
+- Actual free-tier availability.
+- Project-specific rate limits.
 
-Implement the actual AI credit system:
+Do not assume every account has identical quota limits.
 
-- AiCreditBalance.
-- AiCreditTransaction.
-- Atomic reservations.
-- Idempotent settlement.
-- Automatic refunds.
-- Reservation expiration and recovery.
-- Monthly allowance resets.
-- Audit history.
+Use configurable model routing rather than hardcoding model assumptions throughout the application.
 
-Remove any duplicate authoritative AI balance stored in Profile.
+Never activate a paid billing tier.
 
-Build and test actual caption generation, rewriting, hashtags, multi-platform adaptation and thread generation.
+## STEP 2 — IMPLEMENT THE AI PROVIDER
 
-Do not leave simulated AI functionality presented as real AI.
+Use the official Google Gen AI SDK.
 
-## PRIORITY 3 — DODO PAYMENTS
+Create a modular provider architecture.
 
-Integrate Dodo Payments in test mode.
+Suggested structure:
 
-- Checkout Sessions.
-- Subscription creation.
-- Subscription renewals.
-- Cancellation.
-- Upgrades and downgrades.
-- Webhook validation.
-- Idempotent event processing.
-- Customer Billing Portal.
-- AI credit pack purchases.
+src/
+  lib/
+    ai/
+      providers/
+        gemini.provider.ts
+      ai.service.ts
+      model-router.ts
+      prompt-registry.ts
+      schema-validator.ts
+      usage-tracker.ts
+      quota-controller.ts
+  services/
+    credits/
+      credit.service.ts
+      reservation.service.ts
+      ledger.service.ts
 
-Do not grant paid access from checkout redirects.
+Adapt this to the actual repository structure rather than blindly copying it.
 
-Only verified server-side events can change subscription entitlements.
+All AI requests must execute server-side.
 
-Razorpay must not be introduced.
+Never expose GEMINI_API_KEY to browser code.
 
-## PRIORITY 4 — SOCIAL ACCOUNT INTEGRATIONS
+## STEP 3 — IMPLEMENT ACTUAL AI FEATURES
 
-Begin with X and LinkedIn.
+Implement the following:
 
-- OAuth connection.
-- Secure token storage.
-- Token refresh.
-- Account retrieval.
-- Disconnect functionality.
-- Token expiration handling.
+1. Quick caption generation.
+2. Hashtag and emoji suggestions.
+3. Tone rewriting.
+4. Multi-platform content adaptation.
+5. Viral thread generation.
+6. Image-to-caption generation.
+7. Seven-day content calendar ideation.
 
-Use official APIs and implement actual API requests.
+Use model-appropriate prompts.
 
-Clearly document which provider developer credentials and approval permissions are required.
+Use structured output where useful.
 
-Do not simulate a successful account connection.
+Validate every AI response using Zod.
 
-## PRIORITY 5 — PUBLISHING ENGINE
+Do not trust generated JSON until it passes schema validation.
 
-Inspect the existing Postiz scheduling architecture and approved Saucer architecture.
+If the provider returns invalid data, handle the error safely and release the reserved credits.
+
+AI features must return actual Gemini responses, not simulated examples.
+
+## STEP 4 — IMPLEMENT A REAL DOUBLE-ENTRY CREDIT LEDGER
+
+Review the existing AI credit architecture document.
+
+Important architectural correction:
+
+A mutable transaction record that changes from PENDING to SETTLED or REFUND is not an immutable ledger.
+
+Separate operational reservation state from immutable accounting entries.
 
 Implement:
 
-- Post persistence.
-- Scheduled publishing records.
-- Background execution.
-- Retry logic.
-- Idempotency.
-- Publishing status.
-- Error tracking.
-- Timezone-aware execution.
+### AiCreditBalance
 
-Do not force long-running jobs onto Vercel serverless functions.
+Maintain fast account balance lookup.
 
-Determine the appropriate durable worker infrastructure.
+Include:
+- organizationId
+- monthlyAllowance
+- monthlyUsed
+- reservedCredits
+- purchasedCredits
+- billingPeriodStart
+- billingPeriodEnd
+- updatedAt
 
-## TESTING REQUIREMENTS
+Adjust naming and fields to match the final database design where necessary.
 
-Run actual integration tests using test credentials.
+### AiCreditReservation
 
-Verify:
+Maintain the lifecycle of each AI request.
 
-1. User registration and login.
-2. Workspace persistence.
-3. Organization-level data isolation.
-4. Successful live Gemini generation.
-5. Concurrent AI credit reservations.
-6. Failed AI request refunds.
-7. Global AI quota exhaustion.
-8. Dodo test checkout.
-9. Duplicate webhook handling.
-10. Social OAuth.
-11. Scheduled publishing.
-12. Publishing retry after failure.
+Include:
+- organizationId
+- userId
+- operation
+- requestedCredits
+- reservationStatus
+- idempotencyKey
+- createdAt
+- expiresAt
+- settledAt
 
-Separate mocked tests from real external API tests.
+Reservation states should distinguish:
+- RESERVED
+- COMMITTED
+- RELEASED
+- EXPIRED
+- RECONCILIATION_REQUIRED
 
-## IMPORTANT
+### AiCreditLedgerEntry
 
-Work incrementally. Do not attempt all integrations simultaneously.
+This must be append-only.
 
-Complete Supabase first, test it, then implement Saucer AI, Dodo, social connections and publishing.
+Include:
+- organizationId
+- reservationId
+- entryType
+- debitAccount
+- creditAccount
+- amount
+- model
+- feature
+- inputTokens
+- outputTokens
+- providerCost
+- idempotencyKey
+- createdAt
 
-Maintain documentation.
+Create appropriate database constraints and indexes.
 
-Do not deploy publicly, switch to paid services, enable live payment mode or make purchases without approval.
+Prevent application-level UPDATE and DELETE operations on finalized ledger entries.
 
-At the end of each priority, create a verification report identifying actual working features, mocked functionality, outstanding credentials and known defects.
+A reservation, commitment, release or grant must create auditable accounting entries.
 
-Begin with the Supabase integration.
+Ensure that each accounting transaction balances.
+
+Use a materialized balance for performance, but ensure the ledger and balance remain consistent.
+
+### Transaction concurrency
+
+Implement atomic reservation using PostgreSQL transactions and row-level locking.
+
+Settlement and release operations must lock the relevant reservation and balance records.
+
+Prevent two concurrent settlement requests from decrementing the same reservation twice.
+
+Use unique idempotency keys.
+
+Test concurrent requests using multiple simultaneous API calls.
+
+### Credit consumption
+
+Use monthly allowance credits first.
+
+Preserve non-expiring purchased credits separately.
+
+Prevent negative balances.
+
+Never trust a customer-supplied credit amount.
+
+Only backend-defined feature costs can determine reservation amounts.
+
+## STEP 5 — MONTHLY RESET
+
+Implement a durable monthly billing-cycle mechanism.
+
+Requirements:
+
+- Align monthly allocations with subscription billing periods.
+- Create a new allocation entry for every renewal.
+- Do not erase historical ledger entries.
+- Preserve eligible purchased credits.
+- Do not clear active reservations blindly.
+- Handle plan upgrades and downgrades.
+- Handle renewal failures and cancellations.
+- Prevent duplicate monthly allocations.
+
+For stuck reservations, implement recovery and reconciliation.
+
+A reservation must not be released merely because a timer expired without checking the request lifecycle.
+
+## STEP 6 — GLOBAL GEMINI QUOTA CONTROLLER
+
+This is critical.
+
+Vercel functions can run on separate instances, so an in-memory quota counter is insufficient.
+
+Implement shared quota coordination using transactional PostgreSQL operations or an equivalent persistent distributed mechanism.
+
+Track:
+
+- Requests per minute.
+- Input tokens per minute.
+- Requests per day.
+- Model-specific usage.
+- Concurrent requests.
+- Internal safety limits.
+
+Read actual quota configuration from environment variables or administrator configuration.
+
+Never hardcode assumed Google quotas as universal values.
+
+Implement:
+- Atomic quota reservations.
+- Usage reconciliation.
+- 429 handling.
+- Retry-after support.
+- Exponential backoff.
+- Request timeouts.
+- Concurrency limits.
+- Administrative AI kill switch.
+
+Google's daily quota resets according to its documented Pacific-time schedule. Account for this correctly.
+
+Never automatically fall back to a paid model.
+
+## STEP 7 — FREE API PRIVACY
+
+Create a clear AI privacy notice.
+
+The notice must disclose that Google may use content submitted through the unpaid API tier to improve its products.
+
+Do not describe the free tier as confidential processing.
+
+Avoid sending unnecessary personal data, confidential client information or credentials to the provider.
+
+Do not store raw sensitive prompts in application logs unnecessarily.
+
+## STEP 8 — API ENDPOINTS
+
+Implement endpoints for:
+
+POST /api/ai/caption
+POST /api/ai/hashtags
+POST /api/ai/rewrite
+POST /api/ai/adapt
+POST /api/ai/thread
+POST /api/ai/vision
+POST /api/ai/calendar
+
+Also implement:
+
+GET /api/ai/credits
+GET /api/ai/usage
+
+Every endpoint must:
+- Authenticate the user.
+- Verify organization membership.
+- Determine the operation cost server-side.
+- Check available credits.
+- Reserve credits atomically.
+- Check shared provider quota.
+- Call Gemini.
+- Validate the response.
+- Settle credits on success.
+- Release credits on confirmed failure.
+- Return current balance and usage information.
+
+Do not let frontend requests specify arbitrary model names, token limits or credit costs.
+
+## STEP 9 — TESTING
+
+Create actual automated tests for:
+
+1. Successful caption generation.
+2. Successful rewriting.
+3. Structured multi-platform output.
+4. Invalid AI response.
+5. Provider timeout.
+6. Provider rate limit exhaustion.
+7. Insufficient customer credits.
+8. Concurrent reservation attempts.
+9. Duplicate settlement attempts.
+10. Duplicate release attempts.
+11. Expired reservation recovery.
+12. Monthly allocation duplication prevention.
+13. Concurrent requests from different users.
+14. Cross-organization AI credit access prevention.
+15. Global quota exhaustion.
+
+Use a mock provider for unit tests.
+
+Also perform at least one real Gemini API integration test with an unpaid API key.
+
+Clearly distinguish mocked tests from actual provider tests.
+
+## STEP 10 — DELIVERABLES
+
+Create or update:
+
+- AI_SYSTEM.md
+- AI_CREDIT_SYSTEM.md
+- AI_PROVIDER_ARCHITECTURE.md
+- AI_QUOTA_MANAGEMENT.md
+- AI_PRIVACY.md
+- DATABASE_SCHEMA.md
+- API_DOCUMENTATION.md
+- TESTING.md
+
+Create:
+
+AI_PHASE_2_REPORT.md
+
+The report must document actual functionality implemented, tests performed, real versus mocked integration results, current quota configuration, unresolved issues and security limitations.
+
+Do not implement Dodo Payments or social OAuth in this priority.
+
+Do not deploy publicly.
+
+Do not enable paid billing.
+
+Complete Saucer AI and its credit ledger first, then report the verified results.
