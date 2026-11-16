@@ -1,149 +1,190 @@
-# SAUCER — PRIORITY 3: DODO PAYMENTS INTEGRATION
+# SAUCER — PRIORITY 4: SOCIAL MEDIA OAUTH & ACCOUNT INTEGRATIONS
 
-Priority 1 (Supabase) and Priority 2 (Gemini AI and Credit Ledger) have been implemented.
+Priorities 1, 2 and 3 have been implemented:
+- Supabase authentication and multi-tenancy.
+- Gemini AI and the AI credit ledger.
+- Dodo Payments subscriptions and billing.
 
-Now implement the complete Dodo Payments integration.
+We are now building actual social media account integrations.
 
-Read:
-- SUBSCRIPTION_SYSTEM.md
-- AI_CREDIT_SYSTEM.md
-- DATABASE_SCHEMA.md
-- API_DOCUMENTATION.md
-- SECURITY.md
-- DEPLOYMENT_GUIDE.md
+## BUSINESS CONSTRAINTS
 
-## 1. PAYMENT PROVIDER
+- No unnecessary paid API services.
+- Use official platform APIs exclusively.
+- Do not use scraping or browser automation.
+- Do not bypass platform restrictions.
+- Do not pretend connections or publishing have succeeded.
+- Clearly document any developer approval requirements.
+- Keep every integration modular and independently testable.
 
-Use Dodo Payments exclusively.
+## INITIAL PLATFORM ORDER
 
-Use its current official SDK and documentation.
+1. Instagram Business/Creator.
+2. Facebook Pages.
+3. LinkedIn.
+4. YouTube.
+5. Pinterest.
+6. Other supported networks.
 
-Use Checkout Sessions for new checkout integrations.
+Postpone X API implementation until its usage costs have been evaluated and explicitly approved.
 
-Initially configure test mode only.
+## PHASE A — INTEGRATION ARCHITECTURE
 
-Do not introduce Razorpay or any other payment provider.
+Create a common social provider interface.
 
-## 2. SUBSCRIPTION PLANS
+Each integration should implement appropriate methods for:
 
-Implement configurable:
+- OAuth authorization.
+- OAuth callback handling.
+- Access token exchange.
+- Refresh token handling.
+- Account profile retrieval.
+- Account connection.
+- Account disconnection.
+- Publishing capability discovery.
+- Media capability discovery.
+- Token expiration.
+- Error handling.
+- Rate-limit handling.
 
-- Free
-- Pro
-- Agency
-- Enterprise
+Keep platform-specific logic inside separate provider modules.
 
-Plans must control:
-- Connected social account limits.
-- Workspace limits.
-- Team member limits.
-- Scheduling allowances.
-- AI monthly credit allowances.
-- Analytics access.
-- Advanced feature access.
+## PHASE B — INSTAGRAM
 
-Subscription configuration must be stored and managed server-side.
+Use the official Instagram API with Instagram Login.
 
-Never trust frontend plan identifiers or prices.
-
-## 3. CHECKOUT
+Support eligible professional Business and Creator accounts.
 
 Implement:
-POST /api/billing/checkout-session
+- OAuth.
+- Account profile.
+- Account connection.
+- Secure token storage.
+- Token expiration and refresh handling.
+- Text and supported media publishing.
+- Publishing status.
+- Error reporting.
+
+Respect format-specific publishing requirements.
+
+## PHASE C — FACEBOOK
+
+Implement official Facebook Pages integration.
 
 Support:
-- New subscriptions.
-- Plan upgrades.
-- Plan downgrades.
-- One-time AI credit purchases.
+- Page authorization.
+- Page discovery.
+- Page access tokens.
+- Page publishing.
+- Supported images and video.
+- Publishing status.
+- Permission checks.
+- Token lifecycle.
 
-Store provider customer and subscription identifiers securely.
+## PHASE D — LINKEDIN
 
-## 4. WEBHOOKS
+Evaluate current Community Management API requirements.
 
-Implement a secure webhook receiver.
+Document:
+- Required application approval.
+- Required permissions.
+- Development and Standard access limitations.
+- Organization requirements.
+- Publishing restrictions.
 
-Requirements:
-- Verify webhook signatures.
-- Validate event payloads.
-- Record event IDs.
-- Handle duplicate deliveries idempotently.
-- Process subscription-created events.
-- Process subscription-updated events.
-- Process subscription-cancelled events.
-- Process payment-success events.
-- Process payment-failure events.
-- Process refunds where applicable.
+Implement only permissions actually approved for our developer application.
 
-Do not activate subscriptions based solely on a checkout success redirect.
+Do not claim Standard access or production publishing support without approval.
 
-## 5. AI CREDIT INTEGRATION
+## PHASE E — YOUTUBE AND PINTEREST
 
-Integrate subscription renewals with Saucer's existing AI credit ledger.
+Implement official OAuth flows and supported publishing features.
 
-On each verified billing-period renewal:
-- Allocate the appropriate plan allowance.
-- Create immutable allocation ledger entries.
-- Preserve eligible purchased credit balances.
-- Prevent duplicate allocations.
-- Apply correct billing-cycle boundaries.
+Document API quotas and any app verification restrictions.
 
-One-time credit purchases must only grant credits after verified payment events.
+Do not promise unsupported analytics or post formats.
 
-Never allow Dodo webhooks to overwrite arbitrary credit balances.
+## DATABASE
 
-## 6. CUSTOMER BILLING PORTAL
+Inspect existing models before adding anything.
 
-Implement server-side creation of customer billing portal sessions.
+Store:
+- Organization ID.
+- Workspace ID.
+- Provider.
+- Provider account ID.
+- Account name.
+- Account type.
+- Encrypted access token.
+- Encrypted refresh token, where available.
+- Expiration timestamps.
+- Granted scopes.
+- Connection status.
+- Last successful refresh.
+- Created and updated timestamps.
 
-Allow customers to:
-- View their subscription.
-- Update subscription where supported.
-- Cancel subscriptions.
-- View billing history.
-- Manage payment methods where supported.
+Create proper tenant-level relationships and authorization.
 
-## 7. SECURITY
+Never expose access or refresh tokens in frontend responses.
 
-- Keep Dodo API keys server-side.
-- Verify webhook signatures.
-- Implement event idempotency.
-- Validate amounts and currency.
-- Never trust browser-supplied payment status.
-- Protect customer billing data.
-- Do not expose provider credentials.
+## SECURITY
 
-## 8. TESTING
+- OAuth state validation.
+- PKCE where supported.
+- Secure token encryption at rest.
+- Secure credential rotation.
+- Server-side token refresh.
+- Revocation handling.
+- Workspace authorization.
+- Organization isolation.
+- Rate limiting.
+- Audit logs.
+
+## FRONTEND
+
+Connect the existing Social Accounts page to real provider functionality.
+
+Implement:
+- Connect Account buttons.
+- OAuth callback states.
+- Connected account cards.
+- Account details.
+- Disconnect controls.
+- Token-expiration warnings.
+- Reconnect flows.
+- Platform capability indicators.
+
+## TESTING
 
 Test:
-- Successful checkout.
-- Invalid checkout request.
-- Subscription creation.
-- Subscription renewal.
-- Subscription cancellation.
-- Duplicate webhook delivery.
-- Failed payment.
-- Refund.
-- One-time credit purchase.
-- Duplicate credit allocation prevention.
-- Plan upgrade.
-- Plan downgrade.
-- Expired subscription access.
+- Successful OAuth.
+- Invalid OAuth state.
+- Invalid token.
+- Expired token.
+- Token refresh.
+- Missing permissions.
+- Duplicate account connection.
+- Account disconnection.
+- Cross-organization account access.
+- Successful real publishing where permissions allow it.
 
-Use Dodo test mode.
+Distinguish mocked tests, developer-mode tests and actual production-approved tests.
 
-## 9. DELIVERABLES
+## DELIVERABLES
+
+Create:
+- SOCIAL_INTEGRATION_PHASE_4_REPORT.md
 
 Update:
-- SUBSCRIPTION_SYSTEM.md
+- SOCIAL_INTEGRATIONS.md
 - DATABASE_SCHEMA.md
 - API_DOCUMENTATION.md
 - SECURITY.md
 - TESTING.md
-- DEPLOYMENT_GUIDE.md
+- FEATURE_PARITY_MATRIX.md
 
-Create DODO_PHASE_3_REPORT.md.
+Begin with a platform feasibility assessment and Instagram integration.
 
-Do not enable live payment mode or deploy publicly without approval.
+Complete and verify one integration before moving to the next.
 
-Complete the actual implementation and tests, not merely UI screens.
+Do not deploy publicly or activate paid APIs without approval.

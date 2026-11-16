@@ -210,3 +210,29 @@ Saucer implements a full test suite verifying all 13 required billing, checkout,
 node scripts/test-dodo-billing.js
 ```
 
+---
+
+## 5. Priority 4 Automated Social Integration Test Suite (`scripts/test-social-suite.js`)
+
+Saucer implements a full test suite verifying all 10 required OAuth, encryption, token lifecycle, and publishing constraint scenarios:
+
+### 5.1 Test Scenarios Matrix
+
+| Scenario # | Test Description | Verification Type | Result |
+| :--- | :--- | :--- | :--- |
+| **1** | Successful OAuth flow & AES-256-GCM token encryption | Cryptographic Cipher & DB | **PASSED** |
+| **2** | Invalid OAuth state parameter & expired state rejection | Security State Validation | **PASSED** |
+| **3** | Invalid token detection (tampered ciphertext / GCM tag) | Authenticated Decryption Guard | **PASSED** |
+| **4** | Expired token detection & health status flagging | Temporal Health Check | **PASSED** |
+| **5** | Token refresh handling & credential update | Encrypted Credential Rotation | **PASSED** |
+| **6** | Missing permissions detection (validates required scopes) | Provider Scopes Validation | **PASSED** |
+| **7** | Duplicate account connection handling (idempotent upsert) | PostgreSQL Unique Key Guard | **PASSED** |
+| **8** | Account disconnection & token credential sanitization | Lifecycle & Token Clearing | **PASSED** |
+| **9** | Cross-organization account access prevention | Multi-Tenant PostgreSQL RLS | **PASSED** |
+| **10** | Multi-platform publishing capabilities & formatting | Platform Validation Rules | **PASSED** |
+
+### 5.2 Test Verification Command
+```bash
+node scripts/test-social-suite.js
+```
+

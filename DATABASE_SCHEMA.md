@@ -375,6 +375,76 @@ enum BillingInterval {
 }
 ```
 
+### 3.6 Social Media Integrations & OAuth State (Priority 4)
+
+```prisma
+model SocialAccount {
+  id                    String           @id @default(uuid())
+  organizationId        String
+  workspaceId           String
+  provider              SocialProvider
+  providerAccountId     String
+  accountName           String
+  accountHandle         String?
+  accountType           String           @default("business")
+  avatarUrl             String?
+  encryptedAccessToken  String
+  encryptedRefreshToken String?
+  tokenExpiresAt        DateTime?
+  grantedScopes         String[]         @default([])
+  connectionStatus      ConnectionStatus @default(CONNECTED)
+  lastRefreshedAt       DateTime?
+  metadata              Json?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  organization          Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace             Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider, providerAccountId])
+  @@index([organizationId])
+  @@index([workspaceId])
+  @@index([provider])
+  @@index([connectionStatus])
+}
+
+model OAuthState {
+  id             String         @id @default(uuid())
+  state          String         @unique
+  organizationId String
+  workspaceId    String
+  userId         String
+  provider       SocialProvider
+  codeVerifier   String?
+  returnUrl      String?
+  expiresAt      DateTime
+  createdAt      DateTime       @default(now())
+
+  @@index([state])
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
+enum SocialProvider {
+  INSTAGRAM
+  FACEBOOK
+  LINKEDIN
+  LINKEDIN_PAGE
+  YOUTUBE
+  PINTEREST
+  THREADS
+  TIKTOK
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  EXPIRED
+  REVOKED
+  ERROR
+}
+```
+
 ---
 
 ## 4. Supabase PostgreSQL Migration Strategy

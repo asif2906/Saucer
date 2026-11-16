@@ -579,3 +579,109 @@ Saucer integrates exclusively with **Dodo Payments** using modern Checkout Sessi
 ```
 - **Response (201 Created)**: Returns post identifier, scheduled timestamp, and tracking URL.
 
+---
+
+## 8. Social Media Accounts & OAuth API (`/api/social/*`)
+
+### 8.1 List Connected Accounts
+- **Endpoint**: `GET /api/social/accounts`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "accounts": [
+    {
+      "id": "acc_892819",
+      "provider": "INSTAGRAM",
+      "accountName": "Acme Visuals",
+      "accountHandle": "@acmevisuals",
+      "accountType": "business",
+      "avatarUrl": "https://images.unsplash.com/...",
+      "connectionStatus": "CONNECTED",
+      "tokenExpiresAt": "2027-01-16T18:00:00.000Z",
+      "lastRefreshedAt": "2026-11-17T00:00:00.000Z",
+      "isTokenExpired": false,
+      "capabilities": {
+        "supportsText": true,
+        "supportsImages": true,
+        "supportsVideo": true,
+        "supportsCarousels": true,
+        "supportsReelsOrShorts": true,
+        "maxTextLength": 2200,
+        "maxImages": 10,
+        "requiresMediaForPost": true
+      }
+    }
+  ],
+  "workspaceId": "ws_12afbdf6",
+  "organizationId": "org_80242ca1"
+}
+```
+
+### 8.2 Initiate OAuth Handshake
+- **Endpoint**: `POST /api/social/oauth/:provider/authorize`
+- **Params**: `:provider` = `instagram` | `facebook` | `linkedin` | `youtube` | `pinterest`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "authUrl": "https://www.facebook.com/v21.0/dialog/oauth?client_id=...&state=...",
+  "state": "b8f041...",
+  "redirectUri": "http://localhost:3000/api/social/oauth/instagram/callback"
+}
+```
+
+### 8.3 OAuth Redirect Callback
+- **Endpoint**: `GET /api/social/oauth/:provider/callback`
+- **Query Params**: `code`, `state` (or `error`, `error_description`)
+- **Behavior**: Validates state parameter against `OAuthState` table, exchanges code for tokens, retrieves profile, encrypts tokens via AES-256-GCM, and redirects to `/app/social-accounts?connected=true`.
+
+### 8.4 Disconnect Social Account
+- **Endpoint**: `POST /api/social/accounts/:id/disconnect`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Account disconnected successfully."
+}
+```
+
+### 8.5 Refresh Account Security Token
+- **Endpoint**: `POST /api/social/accounts/:id/refresh`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "OAuth security tokens refreshed successfully."
+}
+```
+
+### 8.6 Publish Post to Connected Account
+- **Endpoint**: `POST /api/social/accounts/:id/publish`
+- **Access**: Authenticated
+- **Request Body**:
+```json
+{
+  "content": "Launching our winter collection! ✨ #fashion",
+  "media": [
+    {
+      "url": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe.jpg",
+      "mediaType": "image"
+    }
+  ]
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "postId": "ig_post_1794855027350",
+  "platformPostUrl": "https://www.instagram.com/p/ig_post_1794855027350/",
+  "status": "PUBLISHED"
+}
+```
+

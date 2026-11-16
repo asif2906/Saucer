@@ -52,14 +52,18 @@ flowchart TD
 
 ---
 
-## 4. OAuth Credential & Token Encryption
+## 4. OAuth Credential & Token Encryption (AES-256-GCM)
 
 Social media access tokens and refresh tokens represent high-value targets. Saucer encrypts all tokens before writing them to the database:
-- **Algorithm**: **AES-256-GCM** (Authenticated Encryption).
+- **Algorithm**: **AES-256-GCM** (Authenticated Encryption with Associated Data).
+- **Format**: `iv_hex:auth_tag_hex:ciphertext_hex` stored in `SocialAccount.encryptedAccessToken` and `SocialAccount.encryptedRefreshToken`.
+- **Integrity Guarantee**: GCM authentication tags prevent any tampering or bit-flipping attacks. A corrupted or tampered ciphertext immediately fails tag verification.
 - **Key Derivation & Storage**:
-  - `ENCRYPTION_PROVIDER="local"`: Utilizes a high-entropy 256-bit key (`ENCRYPTION_KEY`) injected via secure environment variables.
-  - `ENCRYPTION_PROVIDER="aws-kms"`: Utilizes AWS Key Management Service (KMS) envelope encryption for enterprise compliance.
-- **Key Rotation Support**: A background workflow (`encryptTokensWorkflow`) allows seamless zero-downtime key rotation.
+  - Utilizes a 256-bit key derived via SHA-256 from `ENCRYPTION_KEY` injected via server-side environment variables.
+- **Zero Frontend Leakage**:
+  - Encrypted tokens are strictly excluded from API responses (`GET /api/social/accounts` returns sanitized metadata only).
+- **OAuth State Protection**:
+  - `OAuthState` records store 32-byte crypto-random `state` and PKCE `code_verifier` with a 15-minute TTL. Used states are deleted immediately upon single callback to prevent replay attacks.
 
 ---
 
