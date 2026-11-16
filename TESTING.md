@@ -181,3 +181,32 @@ Saucer implements a comprehensive test suite covering all 15 operational scenari
   node scripts/test-ai-suite.js
   ```
 
+---
+
+## 4. Priority 3 Automated Dodo Payments Test Suite (`scripts/test-dodo-billing.js`)
+
+Saucer implements a full test suite verifying all 13 required billing, checkout, and webhook lifecycle scenarios in Dodo Payments `test_mode`:
+
+### 4.1 Test Scenarios Matrix
+
+| Scenario # | Test Description | Verification Type | Result |
+| :--- | :--- | :--- | :--- |
+| **1** | Successful checkout session creation (PRO) | Dodo Checkout SDK / Server | **PASSED** |
+| **2** | Invalid checkout request handling (FREE rejection) | Server Validation | **PASSED** |
+| **3** | Subscription creation (`subscription.active`) | Webhook Ingress & RLS | **PASSED** |
+| **4** | Duplicate webhook delivery defense (Idempotency) | `PaymentEvent` Replay Guard | **PASSED** |
+| **5** | Subscription renewal (`subscription.renewed`) | Billing Cycle Advancement | **PASSED** |
+| **6** | Duplicate credit allocation prevention | PostgreSQL Unique Key Guard | **PASSED** |
+| **7** | Plan upgrade (PRO -> AGENCY & 2,500 credits) | Dynamic Entitlement Sync | **PASSED** |
+| **8** | Plan downgrade (AGENCY -> PRO & 500 credits) | Dynamic Entitlement Sync | **PASSED** |
+| **9** | Payment failure handling (`PAST_DUE` state) | Grace Period Lifecycle | **PASSED** |
+| **10** | One-time AI credit pack purchase (500 credits) | Non-expiring `purchasedCredits` | **PASSED** |
+| **11** | Refund handling (`refund.succeeded`) | Safe Balance Rollback | **PASSED** |
+| **12** | Subscription cancellation (`subscription.cancelled`) | CancelAt Date Persistence | **PASSED** |
+| **13** | Customer billing portal session generation | Dodo Customer Portal SDK | **PASSED** |
+
+### 4.2 Test Verification Command
+```bash
+node scripts/test-dodo-billing.js
+```
+

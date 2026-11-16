@@ -136,3 +136,22 @@ sequenceDiagram
    - Healthcheck controllers on port `3002` verified every 10 seconds.
    - Temporal execution watchdog alerts if publishing lag exceeds 60 seconds.
 
+---
+
+## 6. Dodo Payments Webhook & Production Configuration
+
+1. **Required Environment Variables**:
+   ```ini
+   DODO_PAYMENTS_API_KEY="your-dodo-api-key"
+   DODO_PAYMENTS_WEBHOOK_KEY="your-dodo-webhook-signing-secret"
+   DODO_PAYMENTS_ENVIRONMENT="test_mode" # Switch to live_mode only with operational sign-off
+   DODO_PAYMENTS_RETURN_URL="https://saucer.tech/app/settings/billing"
+   ```
+2. **Webhook Endpoint URL**:
+   Configure in the Dodo Payments Dashboard under Developer Webhooks:
+   - Webhook URL: `https://saucer.tech/api/billing/webhook`
+   - Subscribed Events: `subscription.active`, `subscription.renewed`, `subscription.updated`, `subscription.cancelled`, `subscription.failed`, `payment.succeeded`, `payment.failed`, `refund.succeeded`.
+3. **Test Mode Isolation**:
+   - Always verify new subscription product IDs in `test_mode` first using `scripts/test-dodo-billing.js`.
+
+

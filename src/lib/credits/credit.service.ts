@@ -395,4 +395,254 @@ export class CreditService {
 
     return { recoveredCount };
   }
+
+  /**
+   * Durably processes monthly subscription billing renewal.
+   * Allocates new monthly allowance, resets monthlyUsed, preserves purchasedCredits.
+   * Enforces idempotency per billing cycle to prevent duplicate allocations.
+   */
+  public static async renewMonthlyAllowance(
+    organizationId: string,
+    allowance: number,
+    cycleStartDate: Date,
+    cycleEndDate: Date,
+    idempotencyKey: string
+  ): Promise<{ success: boolean; alreadyAllocated?: boolean; error?: string }> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        // 1. Idempotency Check: check if this billing cycle allocation was already executed
+        const existingLedger = await tx.aiCreditLedgerEntry.findUnique({
+          where: { idempotencyKey },
+        });
+
+        if (existingLedger) {
+          return { success: true, alreadyAllocated: true };
+        }
+
+        // 2. Ensure balance record exists
+        let balance = await tx.aiCreditBalance.findUnique({
+          where: { organizationId },
+        });
+
+        if (!balance) {
+          balance = await tx.aiCreditBalance.create({
+            data: {
+              organizationId,
+              monthlyAllowance: allowance,
+              monthlyUsed: 0,
+              reservedCredits: 0,
+              purchasedCredits: 0,
+              billingPeriodStart: cycleStartDate,
+              billingPeriodEnd: cycleEndDate,
+            },
+          });
+        } else {
+          // 3. Reset monthly usage, update allowance and billing period, strictly preserve purchasedCredits
+          await tx.aiCreditBalance.update({
+            where: { organizationId },
+            data: {
+              monthlyAllowance: allowance,
+              monthlyUsed: 0,
+              billingPeriodStart: cycleStartDate,
+              billingPeriodEnd: cycleEndDate,
+            },
+          });
+        }
+
+        // 4. Create immutable audit ledger entry
+        await tx.aiCreditLedgerEntry.create({
+          data: {
+            organizationId,
+            entryType: LedgerEntryType.MONTHLY_RESET,
+            debitAccount: "SYSTEM_ALLOWANCE_POOL",
+            creditAccount: "CUSTOMER_MONTHLY_ALLOWANCE",
+            amount: allowance,
+            feature: "subscription_renewal",
+            providerCost: 0.0,
+            idempotencyKey,
+            createdAt: new Date(),
+          },
+        });
+
+        return { success: true, alreadyAllocated: false };
+      });
+    } catch (err: any) {
+      console.error("[CreditService.renewMonthlyAllowance] Error:", err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Grants purchased non-expiring AI credit pack upon verified payment.succeeded.
+   */
+  public static async grantPurchasedCredits(
+    organizationId: string,
+    amount: number,
+    providerCostUsd: number,
+    idempotencyKey: string
+  ): Promise<{ success: boolean; alreadyGranted?: boolean; error?: string }> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        // 1. Idempotency Check
+        const existing = await tx.aiCreditLedgerEntry.findUnique({
+          where: { idempotencyKey },
+        });
+
+        if (existing) {
+          return { success: true, alreadyGranted: true };
+        }
+
+        // 2. Ensure balance exists
+        const balance = await tx.aiCreditBalance.findUnique({
+          where: { organizationId },
+        });
+
+        if (!balance) {
+          const now = new Date();
+          await tx.aiCreditBalance.create({
+            data: {
+              organizationId,
+              monthlyAllowance: 50,
+              monthlyUsed: 0,
+              reservedCredits: 0,
+              purchasedCredits: amount,
+              billingPeriodStart: now,
+              billingPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            },
+          });
+        } else {
+          // Increment non-expiring purchased credits
+          await tx.aiCreditBalance.update({
+            where: { organizationId },
+            data: {
+              purchasedCredits: { increment: amount },
+            },
+          });
+        }
+
+        // 3. Append immutable ledger entry
+        await tx.aiCreditLedgerEntry.create({
+          data: {
+            organizationId,
+            entryType: LedgerEntryType.PURCHASE_GRANT,
+            debitAccount: "SYSTEM_PURCHASED_POOL",
+            creditAccount: "CUSTOMER_PURCHASED_CREDITS",
+            amount,
+            feature: "credit_pack_purchase",
+            providerCost: providerCostUsd,
+            idempotencyKey,
+            createdAt: new Date(),
+          },
+        });
+
+        return { success: true, alreadyGranted: false };
+      });
+    } catch (err: any) {
+      console.error("[CreditService.grantPurchasedCredits] Error:", err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Adjusts monthly allowance on mid-cycle subscription upgrade or downgrade.
+   */
+  public static async updateTierAllowance(
+    organizationId: string,
+    newAllowance: number,
+    idempotencyKey: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const existing = await tx.aiCreditLedgerEntry.findUnique({
+          where: { idempotencyKey },
+        });
+        if (existing) {
+          return { success: true };
+        }
+
+        const balance = await tx.aiCreditBalance.findUnique({
+          where: { organizationId },
+        });
+
+        if (balance) {
+          await tx.aiCreditBalance.update({
+            where: { organizationId },
+            data: { monthlyAllowance: newAllowance },
+          });
+        }
+
+        await tx.aiCreditLedgerEntry.create({
+          data: {
+            organizationId,
+            entryType: LedgerEntryType.ALLOWANCE_GRANT,
+            debitAccount: "SYSTEM_TIER_ADJUSTMENT",
+            creditAccount: "CUSTOMER_MONTHLY_ALLOWANCE",
+            amount: newAllowance,
+            feature: "plan_tier_update",
+            providerCost: 0.0,
+            idempotencyKey,
+            createdAt: new Date(),
+          },
+        });
+
+        return { success: true };
+      });
+    } catch (err: any) {
+      console.error("[CreditService.updateTierAllowance] Error:", err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Safely deducts purchased credits on refund.
+   */
+  public static async refundPurchasedCredits(
+    organizationId: string,
+    amount: number,
+    idempotencyKey: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const existing = await tx.aiCreditLedgerEntry.findUnique({
+          where: { idempotencyKey },
+        });
+        if (existing) {
+          return { success: true };
+        }
+
+        const balance = await tx.aiCreditBalance.findUnique({
+          where: { organizationId },
+        });
+
+        if (balance) {
+          const deductAmount = Math.min(balance.purchasedCredits, amount);
+          await tx.aiCreditBalance.update({
+            where: { organizationId },
+            data: {
+              purchasedCredits: { decrement: deductAmount },
+            },
+          });
+        }
+
+        await tx.aiCreditLedgerEntry.create({
+          data: {
+            organizationId,
+            entryType: LedgerEntryType.REFUND_CREDIT,
+            debitAccount: "CUSTOMER_PURCHASED_CREDITS",
+            creditAccount: "SYSTEM_PURCHASED_POOL",
+            amount,
+            feature: "credit_pack_refund",
+            providerCost: 0.0,
+            idempotencyKey,
+            createdAt: new Date(),
+          },
+        });
+
+        return { success: true };
+      });
+    } catch (err: any) {
+      console.error("[CreditService.refundPurchasedCredits] Error:", err);
+      return { success: false, error: err.message };
+    }
+  }
 }

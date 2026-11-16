@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { 
   CreditCard, 
   Check, 
@@ -11,10 +10,10 @@ import {
   Zap, 
   Building2, 
   ArrowRight, 
-  Download,
   AlertCircle,
-  Clock,
-  Coins
+  Coins,
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,12 +22,11 @@ import { Badge } from "@/components/ui/badge";
 interface PlanItem {
   id: string;
   name: string;
-  price: string;
-  period: string;
+  tier: "FREE" | "PRO" | "AGENCY" | "ENTERPRISE";
+  monthlyPrice: string;
+  yearlyPrice: string;
   description: string;
   features: string[];
-  isCurrent?: boolean;
-  dodoProductId?: string;
   badge?: string;
 }
 
@@ -36,102 +34,188 @@ const PLANS: PlanItem[] = [
   {
     id: "free",
     name: "Free Community",
-    price: "$0",
-    period: "forever",
-    description: "Ideal for solo creators and hobbyists getting started.",
+    tier: "FREE",
+    monthlyPrice: "$0",
+    yearlyPrice: "$0",
+    description: "Ideal for solo creators getting started with social automation.",
     features: [
       "Up to 3 connected social channels",
       "30 scheduled posts per month",
-      "Gemini 3.5 Flash-Lite AI (10 credits/mo)",
+      "50 Gemini AI credits monthly",
       "Standard 7-day analytics",
       "1 workspace",
     ],
-    isCurrent: true,
   },
   {
     id: "pro",
     name: "Pro Creator",
-    price: "$29",
-    period: "per month",
+    tier: "PRO",
+    monthlyPrice: "$29",
+    yearlyPrice: "$290",
     description: "For professional creators, influencers, and growing brands.",
     features: [
-      "Up to 15 connected social channels",
+      "Up to 10 connected social channels",
       "Unlimited scheduled posts",
-      "Gemini 3.8 Flash AI (500 credits/mo)",
+      "500 Gemini AI credits monthly",
       "Full 90-day analytics & CSV exports",
       "3 team member seats",
       "Up to 3 workspaces",
-      "RSS to Social autoposting",
+      "Public REST API access",
     ],
-    dodoProductId: "p_dodo_pro_monthly",
     badge: "Most Popular",
   },
   {
     id: "agency",
     name: "Agency & Studio",
-    price: "$89",
-    period: "per month",
-    description: "Designed for social media agencies managing multiple client brands.",
+    tier: "AGENCY",
+    monthlyPrice: "$89",
+    yearlyPrice: "$890",
+    description: "Designed for marketing agencies managing multiple client brands.",
     features: [
-      "Up to 50 connected social channels",
+      "Up to 30 connected social channels",
       "Unlimited scheduled posts",
-      "Gemini 3.8 Flash AI (2,000 credits/mo)",
-      "10 team member seats with role permissions",
-      "Unlimited workspaces & brand kits",
-      "Outgoing webhooks & automation triggers",
-      "Priority queue dispatch",
+      "2,500 Gemini AI credits monthly",
+      "15 team member seats with role permissions",
+      "10 workspaces & brand kits",
+      "Post approval workflows",
+      "365-day analytics retention",
+      "Dedicated Dodo Customer Portal",
     ],
-    dodoProductId: "p_dodo_agency_monthly",
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    tier: "ENTERPRISE",
+    monthlyPrice: "$299",
+    yearlyPrice: "$2,990",
+    description: "Custom enterprise infrastructure with dedicated compliance.",
+    features: [
+      "100+ connected social channels",
+      "Unlimited scheduled posts & workspaces",
+      "10,000 Gemini AI credits monthly",
+      "50 team member seats",
+      "Multi-year analytics retention",
+      "Custom SLA & account manager",
+    ],
   },
 ];
 
 const CREDIT_PACKS = [
-  { id: "pack-100", credits: "100 AI Credits", price: "$5", perCredit: "$0.05/credit", dodoPackId: "p_dodo_pack_100" },
-  { id: "pack-500", credits: "500 AI Credits", price: "$20", perCredit: "$0.04/credit", dodoPackId: "p_dodo_pack_500", popular: true },
-  { id: "pack-1500", credits: "1,500 AI Credits", price: "$50", perCredit: "$0.033/credit", dodoPackId: "p_dodo_pack_1500" },
-];
-
-const INVOICE_HISTORY = [
-  { id: "inv_001", date: "Nov 01, 2026", amount: "$0.00", plan: "Free Community Plan", status: "Paid", receipt: "#" },
+  { id: "500", credits: "500 AI Credits", price: "$10", perCredit: "$0.02/credit" },
+  { id: "2000", credits: "2,000 AI Credits", price: "$30", perCredit: "$0.015/credit", popular: true },
 ];
 
 export default function BillingPage() {
-  const [selectedBillingCycle, setSelectedBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [selectedBillingCycle, setSelectedBillingCycle] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
+  const [billingData, setBillingData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handlePlanCheckout = (planId: string) => {
-    setCheckoutLoading(planId);
-    // Simulates server-side Dodo Payments Checkout Session generation
-    setTimeout(() => {
-      setCheckoutLoading(null);
-      setNotice(`Dodo Payments Checkout Session initiated for plan: ${planId.toUpperCase()} (test_mode). In production, this securely redirects to checkout.dodopayments.com.`);
-      setTimeout(() => setNotice(null), 6000);
-    }, 800);
+  const fetchBilling = async () => {
+    try {
+      const res = await fetch("/api/billing/subscription");
+      if (res.ok) {
+        const data = await res.json();
+        setBillingData(data);
+      }
+    } catch (err) {
+      console.error("Failed to load billing overview:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleBuyCredits = (packId: string) => {
-    setCheckoutLoading(packId);
-    setTimeout(() => {
+  useEffect(() => {
+    fetchBilling();
+  }, []);
+
+  const handlePlanCheckout = async (tier: "FREE" | "PRO" | "AGENCY" | "ENTERPRISE") => {
+    if (tier === "FREE") return;
+    setCheckoutLoading(tier);
+    setErrorNotice(null);
+
+    try {
+      const res = await fetch("/api/billing/checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tier,
+          billingPeriod: selectedBillingCycle,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorNotice(data.error || "Failed to initiate checkout session");
+      } else if (data.checkoutUrl) {
+        setNotice(`Dodo Payments Checkout Session initialized. Redirecting to checkout: ${data.checkoutUrl}`);
+        window.open(data.checkoutUrl, "_blank");
+      }
+    } catch (err: any) {
+      setErrorNotice(err.message || "Failed to reach billing service");
+    } finally {
       setCheckoutLoading(null);
-      setNotice(`Dodo Payments Checkout Session generated for Credit Pack (${packId}) in test_mode. Credits will settle into ledger upon webhook receipt.`);
-      setTimeout(() => setNotice(null), 6000);
-    }, 800);
+    }
   };
 
-  const handleOpenCustomerPortal = () => {
+  const handleBuyCredits = async (packId: string) => {
+    setCheckoutLoading(`pack-${packId}`);
+    setErrorNotice(null);
+
+    try {
+      const res = await fetch("/api/billing/checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creditPack: packId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorNotice(data.error || "Failed to initiate credit checkout");
+      } else if (data.checkoutUrl) {
+        setNotice(`Dodo Payments Checkout Session generated for ${packId} AI Credits. Redirecting...`);
+        window.open(data.checkoutUrl, "_blank");
+      }
+    } catch (err: any) {
+      setErrorNotice(err.message || "Failed to purchase credit pack");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleOpenCustomerPortal = async () => {
     setPortalLoading(true);
-    setTimeout(() => {
+    setErrorNotice(null);
+
+    try {
+      const res = await fetch("/api/billing/customer-portal", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorNotice(data.error || "Failed to generate customer portal session");
+      } else if (data.portalUrl) {
+        setNotice("Opening Dodo Payments Customer Billing Portal...");
+        window.open(data.portalUrl, "_blank");
+      }
+    } catch (err: any) {
+      setErrorNotice(err.message || "Portal request failed");
+    } finally {
       setPortalLoading(false);
-      setNotice("Dodo Customer Billing Portal session created. Redirecting to hosted customer management session.");
-      setTimeout(() => setNotice(null), 5000);
-    }, 700);
+    }
   };
+
+  const currentTier = billingData?.subscription?.tier || "FREE";
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -141,48 +225,74 @@ export default function BillingPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your workspace subscription tier, purchase one-time AI credit packs, and review billing invoices.
+            Manage your subscription plan, buy one-time AI credits, and access your billing portal.
           </p>
         </div>
 
-        <Button 
-          variant="outline" 
-          onClick={handleOpenCustomerPortal}
-          disabled={portalLoading}
-          className="gap-2 text-xs"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          {portalLoading ? "Opening Portal..." : "Dodo Customer Portal"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchBilling}
+            disabled={loading}
+            className="text-xs"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleOpenCustomerPortal}
+            disabled={portalLoading}
+            className="gap-2 text-xs"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {portalLoading ? "Opening Portal..." : "Dodo Customer Portal"}
+          </Button>
+        </div>
       </div>
 
-      {/* Notice Banner */}
+      {/* Notifications */}
       {notice && (
         <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5">
           <Check className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
-          <div>{notice}</div>
+          <div className="flex-1">{notice}</div>
+        </div>
+      )}
+      {errorNotice && (
+        <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="flex-1">{errorNotice}</div>
         </div>
       )}
 
-      {/* Current Subscription Card */}
+      {/* Current Subscription Status */}
       <Card className="border-emerald-500/30 bg-emerald-500/5">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs uppercase font-bold tracking-wider text-muted-foreground">Current Plan</span>
-                <Badge className="bg-emerald-600 text-white text-[10px]">Active</Badge>
+                <Badge className="bg-emerald-600 text-white text-[10px]">
+                  {billingData?.subscription?.status || "ACTIVE"}
+                </Badge>
               </div>
-              <h2 className="text-2xl font-bold text-foreground">Free Community Plan</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                {PLANS.find(p => p.tier === currentTier)?.name || "Free Community Plan"}
+              </h2>
               <p className="text-xs text-muted-foreground">
-                Renews automatically each month. Entitlements managed securely via verified server-side Dodo webhook events.
+                Billing managed securely via Dodo Payments. Entitlements synchronized with live double-entry AI credit ledger.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="text-left sm:text-right">
-                <div className="text-sm font-bold font-mono">$0.00 / month</div>
-                <div className="text-[11px] text-muted-foreground">Next reset: Dec 01, 2026</div>
+                <div className="text-sm font-bold font-mono">
+                  {currentTier === "FREE" ? "$0.00 / month" : `${billingData?.plan?.monthlyPriceUsd || 0}.00 / month`}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Available Credits: {billingData?.usage?.credits?.available ?? 50}
+                </div>
               </div>
               <Button 
                 variant="outline" 
@@ -197,43 +307,69 @@ export default function BillingPage() {
         </CardContent>
       </Card>
 
-      {/* Subscription Plans Grid */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">Available Subscription Plans</h2>
-          <p className="text-xs text-muted-foreground">
-            Upgrade seamlessly via Dodo Payments Checkout Sessions with instant entitlement synchronization.
-          </p>
+      {/* Billing Cycle Toggle */}
+      <div className="flex justify-center">
+        <div className="inline-flex items-center p-1 rounded-xl bg-muted border text-xs font-medium">
+          <button
+            onClick={() => setSelectedBillingCycle("MONTHLY")}
+            className={`px-3 py-1.5 rounded-lg transition-colors ${
+              selectedBillingCycle === "MONTHLY" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            Monthly Billing
+          </button>
+          <button
+            onClick={() => setSelectedBillingCycle("YEARLY")}
+            className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
+              selectedBillingCycle === "YEARLY" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            Annual Billing
+            <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600">Save 17%</Badge>
+          </button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {PLANS.map((plan) => (
+      {/* Subscription Plans Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {PLANS.map((plan) => {
+          const isCurrent = currentTier === plan.tier;
+          const price = selectedBillingCycle === "YEARLY" ? plan.yearlyPrice : plan.monthlyPrice;
+          const intervalLabel = selectedBillingCycle === "YEARLY" ? "/ year" : "/ month";
+
+          return (
             <Card 
-              key={plan.id} 
-              className={`relative flex flex-col justify-between ${
-                plan.badge ? "border-emerald-500 shadow-md ring-1 ring-emerald-500/30" : ""
+              key={plan.id}
+              className={`flex flex-col relative transition-all duration-200 ${
+                isCurrent 
+                  ? "border-emerald-500 ring-1 ring-emerald-500 bg-card" 
+                  : plan.badge 
+                  ? "border-primary/40 shadow-sm" 
+                  : "border-border"
               }`}
             >
-              {plan.badge && (
+              {plan.badge && !isCurrent && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-emerald-600 text-white text-[10px] px-2.5 py-0.5 shadow-sm">
+                  <Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-2 py-0.5">
                     {plan.badge}
                   </Badge>
                 </div>
               )}
 
               <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold">{plan.name}</CardTitle>
+                <CardTitle className="text-lg font-bold">{plan.name}</CardTitle>
                 <CardDescription className="text-xs min-h-[32px]">{plan.description}</CardDescription>
                 <div className="pt-2">
-                  <span className="text-3xl font-extrabold">{plan.price}</span>
-                  <span className="text-xs text-muted-foreground ml-1.5 font-normal">/{plan.period}</span>
+                  <span className="text-3xl font-extrabold">{price}</span>
+                  <span className="text-xs text-muted-foreground ml-1">{plan.tier === "FREE" ? "forever" : intervalLabel}</span>
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-2.5 text-xs flex-1">
-                <div className="font-semibold text-foreground text-[11px] uppercase tracking-wider">Features included:</div>
-                <ul className="space-y-2">
+              <CardContent className="flex-1 space-y-3 pb-6">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Included Features
+                </div>
+                <ul className="space-y-2 text-xs">
                   {plan.features.map((feat, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-muted-foreground">
                       <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
@@ -243,144 +379,80 @@ export default function BillingPage() {
                 </ul>
               </CardContent>
 
-              <CardFooter className="pt-4 border-t">
-                {plan.isCurrent ? (
-                  <Button variant="outline" disabled className="w-full text-xs">
-                    Current Plan
-                  </Button>
-                ) : (
-                  <Button 
-                    className="w-full text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5"
-                    disabled={checkoutLoading === plan.id}
-                    onClick={() => handlePlanCheckout(plan.id)}
-                  >
-                    {checkoutLoading === plan.id ? "Initiating Checkout..." : `Upgrade to ${plan.name.split(" ")[0]}`}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                )}
+              <CardFooter className="pt-0">
+                <Button 
+                  className="w-full text-xs font-semibold gap-1.5"
+                  variant={isCurrent ? "outline" : plan.badge ? "default" : "secondary"}
+                  disabled={isCurrent || checkoutLoading === plan.tier}
+                  onClick={() => handlePlanCheckout(plan.tier)}
+                >
+                  {checkoutLoading === plan.tier ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Creating Checkout...
+                    </>
+                  ) : isCurrent ? (
+                    "Current Plan"
+                  ) : (
+                    <>
+                      Upgrade to {plan.name}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </>
+                  )}
+                </Button>
               </CardFooter>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* One-Time AI Credit Packs */}
+      <div className="pt-6 border-t">
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <Coins className="h-5 w-5 text-amber-500" />
+            <h2 className="text-lg font-bold tracking-tight">One-Time AI Credit Add-On Packs</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Non-expiring AI credits. Stored permanently in your organization ledger and consumed only after monthly allowances.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {CREDIT_PACKS.map((pack) => (
+            <Card key={pack.id} className="border-border">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-sm flex items-center gap-2">
+                    {pack.credits}
+                    {pack.popular && <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600">Best Value</Badge>}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                    {pack.price} ({pack.perCredit})
+                  </div>
+                </div>
+
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  disabled={checkoutLoading === `pack-${pack.id}`}
+                  onClick={() => handleBuyCredits(pack.id)}
+                  className="text-xs gap-1.5"
+                >
+                  {checkoutLoading === `pack-${pack.id}` ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      Buy Pack
+                      <Coins className="h-3.5 w-3.5 text-amber-500" />
+                    </>
+                  )}
+                </Button>
+              </CardContent>
             </Card>
           ))}
         </div>
       </div>
-
-      {/* One-Time AI Credit Packs */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Coins className="h-5 w-5 text-amber-500" />
-            <div>
-              <CardTitle className="text-base font-semibold">One-Time AI Credit Add-Ons</CardTitle>
-              <CardDescription className="text-xs">
-                Need extra Gemini caption generations without upgrading your base tier? Purchase perpetual bonus credits.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {CREDIT_PACKS.map((pack) => (
-              <div 
-                key={pack.id} 
-                className={`p-4 rounded-xl border flex flex-col justify-between gap-3 ${
-                  pack.popular ? "border-amber-500/50 bg-amber-500/5" : "bg-muted/20"
-                }`}
-              >
-                <div>
-                  {pack.popular && (
-                    <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 mb-1.5">
-                      Best Value
-                    </Badge>
-                  )}
-                  <div className="font-bold text-sm text-foreground">{pack.credits}</div>
-                  <div className="text-[11px] text-muted-foreground">{pack.perCredit}</div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <span className="text-lg font-bold font-mono">{pack.price}</span>
-                  <Button
-                    size="sm"
-                    variant={pack.popular ? "default" : "outline"}
-                    className={pack.popular ? "bg-amber-600 hover:bg-amber-500 text-white text-xs h-8" : "text-xs h-8"}
-                    disabled={checkoutLoading === pack.id}
-                    onClick={() => handleBuyCredits(pack.id)}
-                  >
-                    {checkoutLoading === pack.id ? "Processing..." : "Purchase"}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-start gap-2.5 mt-4 p-3 rounded-lg bg-muted/40 border text-[11px] text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
-            <div>
-              <strong>Atomic Credit Ledger Architecture:</strong> Purchased credits are deposited into the user&apos;s Saucer internal ledger upon verified <code className="font-mono text-xs">payment.succeeded</code> webhook signature validation. Credits do not expire at monthly billing resets.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Invoice & Payment History */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Payment History & Receipts</CardTitle>
-          <CardDescription className="text-xs">
-            Official tax invoices and payment receipts generated by Dodo Payments
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="pb-3 font-medium">Invoice ID</th>
-                  <th className="pb-3 font-medium">Date</th>
-                  <th className="pb-3 font-medium">Description</th>
-                  <th className="pb-3 font-medium">Amount</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium text-right">Receipt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {INVOICE_HISTORY.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/30">
-                    <td className="py-3 font-mono text-muted-foreground">{inv.id}</td>
-                    <td className="py-3 whitespace-nowrap">{inv.date}</td>
-                    <td className="py-3 font-medium text-foreground">{inv.plan}</td>
-                    <td className="py-3 font-mono">{inv.amount}</td>
-                    <td className="py-3">
-                      <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
-                        {inv.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3 text-right">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
-                        <Download className="h-3 w-3" />
-                        PDF
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Dodo Payments Compliance & Security Disclaimer */}
-      <div className="p-4 rounded-xl border bg-muted/20 text-xs text-muted-foreground space-y-1.5">
-        <div className="font-semibold text-foreground flex items-center gap-1.5">
-          <ShieldCheck className="h-4 w-4 text-emerald-500" />
-          PCI-DSS Compliant Payment Infrastructure
-        </div>
-        <p>
-          Payment processing and checkout operations are powered exclusively by <strong>Dodo Payments</strong>. 
-          Saucer never handles, stores, or transmits credit card numbers or banking secrets. 
-          Entitlements are strictly synchronized via verified webhook events (<code className="font-mono">payment.succeeded</code>, <code className="font-mono">subscription.renewed</code>, <code className="font-mono">subscription.cancelled</code>).
-        </p>
-      </div>
     </div>
   );
 }
-

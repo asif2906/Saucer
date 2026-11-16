@@ -457,49 +457,106 @@ All AI endpoints execute server-side using Google Gemini free-tier models (`gemi
 
 ---
 
-## 6. Subscriptions & Billing (`/api/v1/billing`)
+## 6. Subscriptions & Billing (`/api/billing/*`)
 
-### 6.1 Create Dodo Payments Checkout Session
-- **Endpoint**: `POST /billing/checkout-session`
-- **Access**: Authenticated (Workspace Admin)
-- **Request Body**:
+Saucer integrates exclusively with **Dodo Payments** using modern Checkout Sessions and webhooks.
+
+### 6.1 Create Checkout Session
+- **Endpoint**: `POST /api/billing/checkout-session`
+- **Access**: Authenticated (Organization Admin / Owner)
+- **Request Body (Subscription)**:
 ```json
 {
   "tier": "PRO",
-  "period": "MONTHLY"
+  "billingPeriod": "MONTHLY"
+}
+```
+- **Request Body (One-Time Credit Pack)**:
+```json
+{
+  "creditPack": "500"
 }
 ```
 - **Response (200 OK)**:
 ```json
 {
-  "checkoutSessionId": "cks_99f3c1a8dodo",
-  "checkoutUrl": "https://checkout.dodopayments.com/buy/cks_99f3c1a8dodo"
+  "success": true,
+  "sessionId": "cks_test_1794855027349",
+  "checkoutUrl": "https://test.dodopayments.com/buy/cks_test_1794855027349"
 }
 ```
 
 ### 6.2 Create Dodo Customer Portal Session
-- **Endpoint**: `POST /billing/customer-portal`
-- **Access**: Authenticated (Workspace Admin)
+- **Endpoint**: `POST /api/billing/customer-portal`
+- **Access**: Authenticated (Organization Admin / Owner)
 - **Response (200 OK)**:
 ```json
 {
-  "portalUrl": "https://customer.dodopayments.com/portal/ps_88b2a1"
+  "success": true,
+  "portalUrl": "https://test.dodopayments.com/portal/ps_mock_cus_99f3c1a8"
 }
 ```
 
-### 6.3 Dodo Payments Webhook Ingress
-- **Endpoint**: `POST /billing/dodo/webhook`
-- **Access**: Public (Authenticated via standard webhook cryptographic signatures)
+### 6.3 Query Subscription & Billing Overview
+- **Endpoint**: `GET /api/billing/subscription`
+- **Access**: Authenticated
+- **Response (200 OK)**:
+```json
+{
+  "success": true,
+  "subscription": {
+    "id": "sub_883192",
+    "tier": "PRO",
+    "status": "ACTIVE",
+    "billingInterval": "MONTHLY",
+    "dodoSubscriptionId": "sub_dodo_1794855027350",
+    "dodoCustomerId": "cus_dodo_1794855027350",
+    "currentPeriodStart": "2026-11-16T18:50:27.350Z",
+    "currentPeriodEnd": "2026-12-16T18:50:27.350Z",
+    "cancelAt": null
+  },
+  "plan": {
+    "tier": "PRO",
+    "displayName": "Pro",
+    "monthlyPriceUsd": 29,
+    "yearlyPriceUsd": 290,
+    "connectedChannels": 10,
+    "workspaces": 3,
+    "teamMembers": 3,
+    "monthlyPosts": -1,
+    "monthlyAiCredits": 500,
+    "analyticsRetentionDays": 90,
+    "maxWebhooks": 3,
+    "publicApi": true,
+    "customerPortalAllowed": true
+  },
+  "usage": {
+    "workspaces": 1,
+    "teamMembers": 1,
+    "channels": 0,
+    "credits": {
+      "available": 500,
+      "monthlyAllowance": 500,
+      "monthlyUsed": 0,
+      "purchasedCredits": 0,
+      "reservedCredits": 0
+    }
+  }
+}
+```
+
+### 6.4 Dodo Payments Webhook Ingress
+- **Endpoint**: `POST /api/billing/webhook` (alias: `POST /api/billing/dodo/webhook`)
+- **Access**: Public (Cryptographically verified via `webhook-signature` or `standardwebhooks`)
 - **Events Handled**:
-  - `subscription.active`
-  - `subscription.renewed`
-  - `subscription.updated`
-  - `subscription.cancelled`
-  - `subscription.failed`
-  - `payment.succeeded`
-  - `payment.failed`
-  - `refund.succeeded`
-- **Response (200 OK)**: `{ "status": "success" }`
+  - `subscription.active` / `subscription.created`: Activates tier entitlements and synchronizes monthly AI credit allowance.
+  - `subscription.renewed`: Advances billing period, resets monthly usage, prevents duplicate allocations via idempotency key.
+  - `subscription.updated`: Upgrades/downgrades plan tier and synchronizes AI allowance.
+  - `subscription.cancelled`: Sets `cancelAt` timestamp and transitions status to `CANCELLED`.
+  - `subscription.failed` / `payment.failed`: Marks status as `PAST_DUE`.
+  - `payment.succeeded`: For one-time credit pack purchases, increments `purchasedCredits` in double-entry ledger.
+  - `refund.succeeded`: Safely deducts unspent credit pack balance or downgrades subscription to FREE.
+- **Idempotency Defense**: Replayed webhook events match recorded IDs in `PaymentEvent` table and return `{ "status": "already_processed" }` immediately.
 
 ---
 

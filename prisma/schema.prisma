@@ -23,6 +23,26 @@ enum WorkspaceRole {
   VIEWER
 }
 
+enum SubscriptionTier {
+  FREE
+  PRO
+  AGENCY
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  HALTED
+  CANCELLED
+  TRIALING
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
 enum ReservationStatus {
   RESERVED
   COMMITTED
@@ -71,6 +91,7 @@ model Organization {
   aiCreditBalance       AiCreditBalance?
   aiCreditReservations  AiCreditReservation[]
   aiCreditLedgerEntries AiCreditLedgerEntry[]
+  subscription          Subscription?
 
   @@index([slug])
 }
@@ -202,4 +223,49 @@ model AiGlobalQuota {
   lastResetDay             DateTime @default(now())
   killSwitchActive         Boolean  @default(false)
   updatedAt                DateTime @updatedAt
+}
+
+// ----------------------------------------------------
+// DODO PAYMENTS SUBSCRIPTIONS & PAYMENT EVENTS
+// ----------------------------------------------------
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  organizationId     String             @unique
+  subscriptionTier   SubscriptionTier   @default(FREE)
+  provider           String             @default("dodo")
+  dodoSubscriptionId String?            @unique
+  dodoCustomerId     String?
+  dodoProductId      String?
+  status             SubscriptionStatus @default(ACTIVE)
+  billingInterval    BillingInterval    @default(MONTHLY)
+  cancelAt           DateTime?
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  paymentEvents      PaymentEvent[]
+
+  @@index([organizationId])
+  @@index([dodoSubscriptionId])
+  @@index([dodoCustomerId])
+  @@index([status])
+}
+
+model PaymentEvent {
+  id             String        @id // Webhook event ID (from webhook-id header)
+  subscriptionId String?
+  organizationId String?
+  eventType      String        // e.g. "subscription.active", "payment.succeeded"
+  payload        String        // Full JSON payload
+  signatureValid Boolean       @default(true)
+  processedAt    DateTime      @default(now())
+
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [dodoSubscriptionId], onDelete: SetNull)
+
+  @@index([subscriptionId])
+  @@index([organizationId])
+  @@index([eventType])
 }

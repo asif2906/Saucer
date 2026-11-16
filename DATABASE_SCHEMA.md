@@ -310,55 +310,68 @@ enum LedgerEntryType {
 }
 ```
 
-### 3.5 SaaS Subscriptions (Dodo Payments Integration)
+### 3.5 SaaS Subscriptions & Payment Events (Dodo Payments Integration)
 
 ```prisma
 model Subscription {
-  id                 String           @id @default(cuid())
-  organizationId     String           @unique
-  subscriptionTier   SubscriptionTier @default(FREE) // FREE, PRO, AGENCY, ENTERPRISE
-  provider           String           @default("dodo")
-  dodoSubscriptionId String?          @unique // Dodo Subscription ID (sub_...)
-  dodoCustomerId     String?          // Dodo Customer ID (cus_...)
-  dodoProductId      String?          // Dodo Product ID (pdt_...)
-  status             SubStatus        @default(ACTIVE)
+  id                 String             @id @default(uuid())
+  organizationId     String             @unique
+  subscriptionTier   SubscriptionTier   @default(FREE)
+  provider           String             @default("dodo")
+  dodoSubscriptionId String?            @unique
+  dodoCustomerId     String?
+  dodoProductId      String?
+  status             SubscriptionStatus @default(ACTIVE)
+  billingInterval    BillingInterval    @default(MONTHLY)
   cancelAt           DateTime?
+  currentPeriodStart DateTime           @default(now())
   currentPeriodEnd   DateTime?
-  period             Period           @default(MONTHLY)
-  totalChannels      Int              @default(3)
-  isLifetime         Boolean          @default(false)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  deletedAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   paymentEvents      PaymentEvent[]
 
   @@index([organizationId])
   @@index([dodoSubscriptionId])
   @@index([dodoCustomerId])
+  @@index([status])
 }
 
 model PaymentEvent {
-  id             String       @id // Webhook ID (from webhook-id header)
-  subscriptionId String
-  event          String       // e.g. "subscription.active", "payment.succeeded"
-  payload        String       // Full JSON webhook payload
-  signatureValid Boolean      @default(true)
-  processedAt    DateTime     @default(now())
+  id             String        @id // Webhook event ID (from webhook-id header)
+  subscriptionId String?
+  organizationId String?
+  eventType      String        // e.g. "subscription.active", "payment.succeeded"
+  payload        String        // Full JSON payload
+  signatureValid Boolean       @default(true)
+  processedAt    DateTime      @default(now())
 
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [dodoSubscriptionId], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [dodoSubscriptionId], onDelete: SetNull)
 
   @@index([subscriptionId])
-  @@index([event])
+  @@index([organizationId])
+  @@index([eventType])
 }
 
-enum SubStatus {
+enum SubscriptionTier {
+  FREE
+  PRO
+  AGENCY
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
   HALTED
   CANCELLED
   TRIALING
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
 }
 ```
 

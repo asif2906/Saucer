@@ -68,29 +68,22 @@ The backend utilizes the official `dodopayments` SDK:
 ```typescript
 import { DodoPayments } from 'dodopayments';
 
-@Injectable()
-export class DodoPaymentsService {
-  private readonly client: DodoPayments;
-
-  constructor() {
-    this.client = new DodoPayments({
+export class DodoClient {
+  public static getClient(): DodoPayments {
+    return new DodoPayments({
       bearerToken: process.env.DODO_PAYMENTS_API_KEY,
       environment: (process.env.DODO_PAYMENTS_ENVIRONMENT as 'test_mode' | 'live_mode') || 'test_mode',
     });
-  }
-
-  getClient(): DodoPayments {
-    return this.client;
   }
 }
 ```
 
 ### 4.2 Checkout Sessions Flow
 1. User clicks "Upgrade to Pro" in the Saucer frontend.
-2. Frontend calls `POST /api/v1/billing/checkout-session` with the target `tier` and `period`.
+2. Frontend calls `POST /api/billing/checkout-session` with the target `tier` and `billingPeriod`.
 3. Backend resolves the matching Dodo Product ID and creates a Checkout Session via the SDK:
    ```typescript
-   const session = await this.dodoClient.checkoutSessions.create({
+   const session = await client.checkoutSessions.create({
      product_cart: [
        {
          product_id: productId,
@@ -101,104 +94,86 @@ export class DodoPaymentsService {
        email: user.email,
        name: user.name || 'Saucer User',
      },
-     return_url: `${process.env.DODO_PAYMENTS_RETURN_URL}?session_id={CHECKOUT_SESSION_ID}`,
+     return_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}&type=subscription`,
      metadata: {
        organizationId: org.id,
        userId: user.id,
        tier,
+       billingPeriod,
        type: 'subscription',
      },
    });
    ```
-4. Backend returns the `checkout_url` to the client.
-5. The frontend redirects the user to the secure Dodo Payments hosted checkout page.
-6. Upon payment completion, the user returns to `DODO_PAYMENTS_RETURN_URL`. The frontend shows an *"Activating your subscription..."* loading state while awaiting the verified webhook event.
+4. Backend returns the `checkoutUrl` and `sessionId` to the client.
+5. The frontend redirects or opens the secure Dodo Payments hosted checkout page.
+6. Upon payment completion, the user returns to `DODO_PAYMENTS_RETURN_URL`. The frontend shows an *"Activating your subscription..."* state while awaiting the verified webhook event.
 
 ### 4.3 Customer Billing Portal
 Saucer delegates payment method updates, invoice downloads, and subscription cancellations to Dodo Payments' secure Customer Portal:
-- Endpoint: `POST /api/v1/billing/customer-portal`
-- Calls: `this.dodoClient.customers.createCustomerPortalSession({ customer_id: org.dodoCustomerId })`
+- Endpoint: `POST /api/billing/customer-portal`
+- Calls: `client.customers.customerPortal.create(subscription.dodoCustomerId, { return_url })`
 - Returns the portal URL for seamless one-click redirection.
 
 ---
 
 ## 5. One-Time AI Credit Pack Purchases
 
-In addition to recurring plans, users on Pro or Agency tiers can purchase non-expiring AI Credit Add-On Packs:
+In addition to recurring plans, users can purchase non-expiring AI Credit Add-On Packs:
 - **Add-On Products**:
-  - `pdt_ai_credits_500`: 500 Credits ($10)
-  - `pdt_ai_credits_2000`: 2,000 Credits ($30)
+  - `pdt_credits_500`: 500 Credits ($10)
+  - `pdt_credits_2000`: 2,000 Credits ($30)
 - **Flow**:
-  1. Backend initiates a one-time product Checkout Session (`metadata: { type: 'credit_pack', creditAmount: 500 }`).
-  2. On verified `payment.succeeded` webhook, backend executes:
+  1. Backend initiates a one-time product Checkout Session (`metadata: { type: 'credit_pack', creditAmount: '500' }`).
+  2. On verified `payment.succeeded` webhook, backend calls:
      ```typescript
-     await this.prisma.aiCreditBalance.update({
-       where: { organizationId: orgId },
-       data: { bonusCredits: { increment: 500 } }
-     });
+     await CreditService.grantPurchasedCredits(
+       organizationId,
+       creditAmount,
+       providerCostUsd,
+       idempotencyKey
+     );
      ```
-  3. Logs an audit record in `AiCreditTransaction` with `type: PURCHASE`.
+  3. Increments `purchasedCredits` in `AiCreditBalance` and appends an immutable `PURCHASE_GRANT` entry to `AiCreditLedgerEntry`.
   4. Note: AI usage balances (`usedCredits` and `reservedCredits`) are **never modified** by payment events.
 
 ---
 
 ## 6. Dodo Webhook Verification & Idempotent Processing
 
-Webhooks arrive at `POST /api/v1/billing/dodo/webhook`.
+Webhooks arrive at `POST /api/billing/webhook` (or alias `POST /api/billing/dodo/webhook`).
 
 ### 6.1 Cryptographic Signature Verification
 Dodo Payments utilizes standard webhook signing headers (`webhook-id`, `webhook-signature`, `webhook-timestamp`):
 
 ```typescript
-import { Webhook } from 'standardwebhooks'; // Or official Dodo unwrap
+import { Webhook } from 'standardwebhooks';
 
-@Post('/dodo/webhook')
-async handleWebhook(
-  @Req() req: RawBodyRequest<Request>,
-  @Headers() headers: Record<string, string>
-) {
-  const webhookKey = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
-  if (!webhookKey) {
-    throw new Error('DODO_PAYMENTS_WEBHOOK_KEY is not configured');
-  }
+const wh = new Webhook(webhookKey);
+const event = wh.verify(rawBody, normalizedHeaders);
+```
 
-  const rawBody = req.rawBody.toString();
-  const wh = new Webhook(webhookKey);
+### 6.2 Idempotency Defense & Audit Trail
+```typescript
+const eventId = headers['webhook-id'] || event.id;
+const alreadyProcessed = await prisma.paymentEvent.findUnique({
+  where: { id: eventId },
+});
 
-  let event: any;
-  try {
-    event = wh.verify(rawBody, headers);
-  } catch (err) {
-    this.logger.error(`Webhook signature verification failed: ${err.message}`);
-    throw new UnauthorizedException('Invalid Dodo Payments webhook signature');
-  }
-
-  // 1. Idempotency Check: prevent duplicate execution
-  const eventId = headers['webhook-id'] || event.id;
-  const alreadyProcessed = await this.prisma.paymentEvent.findUnique({
-    where: { id: eventId },
-  });
-
-  if (alreadyProcessed) {
-    return { status: 'already_processed' };
-  }
-
-  // 2. Dispatch domain logic
-  await this.processDodoEvent(event);
-
-  // 3. Record event in PaymentEvent table for auditing and replay defense
-  await this.prisma.paymentEvent.create({
-    data: {
-      id: eventId,
-      subscriptionId: event.data?.subscription_id || 'one_time',
-      event: event.type,
-      payload: rawBody,
-      signatureValid: true,
-    },
-  });
-
-  return { status: 'success' };
+if (alreadyProcessed) {
+  return { status: 'already_processed', eventId };
 }
+
+// Process domain logic, then record:
+await prisma.paymentEvent.create({
+  data: {
+    id: eventId,
+    subscriptionId: event.data?.subscription_id,
+    organizationId: event.data?.metadata?.organizationId,
+    eventType: event.type,
+    payload: rawBody,
+    signatureValid: true,
+  },
+});
 ```
 
 ---

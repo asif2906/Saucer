@@ -98,8 +98,12 @@ flowchart LR
 ## 8. Webhook Security & Idempotency
 
 1. **Cryptographic Signatures**:
-   - Incoming Dodo Payments webhooks require valid cryptographic signature headers (`webhook-id`, `webhook-signature`, `webhook-timestamp`) verified against `DODO_PAYMENTS_WEBHOOK_KEY`.
+   - Incoming Dodo Payments webhooks require valid cryptographic signature headers (`webhook-id`, `webhook-signature`, `webhook-timestamp`) verified against `DODO_PAYMENTS_WEBHOOK_KEY` via `standardwebhooks`.
    - Outgoing customer webhooks are signed using HMAC-SHA256 with workspace-unique signing secrets.
 2. **Replay & Idempotency Defense**:
    - Webhooks log an idempotency hash in the `PaymentEvent` table. Retried webhooks are recognized and answered with `200 OK` without triggering duplicate subscription mutations.
+3. **Payment Credential Isolation & Client Redirect Immunity**:
+   - `DODO_PAYMENTS_API_KEY` and `DODO_PAYMENTS_WEBHOOK_KEY` are strictly server-side variables and are never prefixed with `NEXT_PUBLIC_` or sent to the browser.
+   - Entitlements and paid features are **never** granted based on client-side redirect query parameters (e.g. `?status=success`). Only verified server-to-server webhook deliveries trigger database mutations.
+   - Development and staging environments run strictly with `DODO_PAYMENTS_ENVIRONMENT=test_mode`. Live billing activation is protected behind administrative approvals.
 
