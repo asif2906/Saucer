@@ -54,7 +54,8 @@ Respond ONLY with a JSON object in this exact format:
   }
 
   public static getRewritePrompt(req: RewriteRequest): string {
-    return `Rewrite the following social media post with a distinct "${req.tone.toUpperCase()}" tone:
+    const tone = (req.tone || "professional").toUpperCase();
+    return `Rewrite the following social media post with a distinct "${tone}" tone:
 Original Content: "${req.content}"
 ${req.targetAudience ? `Target Audience: ${req.targetAudience}` : ""}
 
@@ -62,7 +63,7 @@ Preserve the core message and facts while completely revamping the pacing, vocab
 Respond ONLY with a JSON object in this exact format:
 {
   "rewrittenContent": "The rewritten post text",
-  "toneApplied": "${req.tone}",
+  "toneApplied": "${req.tone || "professional"}",
   "changesSummary": "Brief summary of stylistic changes made"
 }`;
   }

@@ -39,57 +39,65 @@ export class GeminiProvider {
     systemInstruction: string,
     primaryModel: string,
     fallbackModel: string,
-    timeoutMs: number = 25000
+    timeoutMs: number = 30000
   ): Promise<GeminiGenerationResult> {
     const client = this.getClient();
     const modelsToTry = [primaryModel, fallbackModel];
     let lastError: any = null;
 
-    for (const model of modelsToTry) {
-      try {
-        const responsePromise = client.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-            responseMimeType: "application/json",
-          },
-        });
-
-        // Timeout race
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Gemini API request timed out after ${timeoutMs}ms`)), timeoutMs)
-        );
-
-        const response: any = await Promise.race([responsePromise, timeoutPromise]);
-        const text = response.text || "";
-        const cleanJsonStr = this.extractJson(text);
-        let parsed: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      for (const model of modelsToTry) {
         try {
-          parsed = JSON.parse(cleanJsonStr);
-        } catch {
-          // If JSON parse fails directly, attempt fallback or throw
-          parsed = { rawText: text };
-        }
+          const responsePromise = client.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              temperature: 0.7,
+              responseMimeType: "application/json",
+            },
+          });
 
-        const inputTokens = response.usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4);
-        const outputTokens = response.usageMetadata?.candidatesTokenCount || Math.ceil(text.length / 4);
+          // Timeout race
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Gemini API request timed out after ${timeoutMs}ms`)), timeoutMs)
+          );
 
-        return {
-          text,
-          rawJson: parsed,
-          inputTokens,
-          outputTokens,
-          modelUsed: model,
-        };
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[GeminiProvider] Model ${model} generation failed: ${err.message}. Trying next fallback if available.`);
-        // If 503 or 429, loop to next model; else if auth error, break early
-        if (err.message?.includes("API_KEY_INVALID") || err.message?.includes("PERMISSION_DENIED")) {
-          throw err;
+          const response: any = await Promise.race([responsePromise, timeoutPromise]);
+          const text = response.text || "";
+          const cleanJsonStr = this.extractJson(text);
+          let parsed: any;
+          try {
+            parsed = JSON.parse(cleanJsonStr);
+          } catch {
+            // If JSON parse fails directly, attempt fallback or throw
+            parsed = { rawText: text };
+          }
+
+          const inputTokens = response.usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4);
+          const outputTokens = response.usageMetadata?.candidatesTokenCount || Math.ceil(text.length / 4);
+
+          return {
+            text,
+            rawJson: parsed,
+            inputTokens,
+            outputTokens,
+            modelUsed: model,
+          };
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[GeminiProvider] Model ${model} generation failed (pass ${attempt + 1}): ${err.message}. Trying next fallback if available.`);
+          // If auth error, break early
+          if (err.message?.includes("API_KEY_INVALID") || err.message?.includes("PERMISSION_DENIED")) {
+            throw err;
+          }
         }
+      }
+
+      if (attempt < 2) {
+        // Exponential backoff to overcome temporary Google Gemini free-tier 503 demand spikes
+        const backoffMs = 2000 * (attempt + 1);
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
 

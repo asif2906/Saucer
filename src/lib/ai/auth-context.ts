@@ -30,47 +30,55 @@ export async function getAuthenticatedAiContext(): Promise<
     };
   }
 
-  // Look up Profile
-  let profile = await prisma.profile.findUnique({
-    where: { supabaseUserId: user.id },
-    include: {
-      organizationMembers: {
-        include: { organization: true },
-      },
-    },
-  });
+  let profileId = "";
+  let organizationId = "";
+  let orgRole = "OWNER";
 
-  if (!profile || profile.organizationMembers.length === 0) {
-    // If not found (e.g. edge case during signup transition), query directly by email
-    const org = await prisma.organization.findFirst({
-      where: {
-        members: {
-          some: {
-            profile: { email: user.email! },
+  // 1. Try Prisma if DATABASE_URL is configured
+  if (process.env.DATABASE_URL) {
+    try {
+      const profile = await prisma.profile.findUnique({
+        where: { supabaseUserId: user.id },
+        include: {
+          organizationMembers: {
+            include: { organization: true },
           },
         },
-      },
-      include: {
-        members: {
-          include: { profile: true },
-        },
-      },
-    });
+      });
 
-    if (org && org.members.length > 0) {
-      const mem = org.members[0];
-      return {
-        success: true,
-        context: {
-          userId: user.id,
-          email: user.email!,
-          profileId: mem.profileId,
-          organizationId: org.id,
-          orgRole: mem.role,
-        },
-      };
+      if (profile && profile.organizationMembers.length > 0) {
+        profileId = profile.id;
+        organizationId = profile.organizationMembers[0].organizationId;
+        orgRole = profile.organizationMembers[0].role;
+      }
+    } catch (err) {
+      console.warn("[getAuthenticatedAiContext] Prisma lookup failed, falling back to Supabase client:", err);
     }
+  }
 
+  // 2. Direct Supabase RLS query fallback
+  if (!profileId || !organizationId) {
+    try {
+      const { data: profileData } = await supabase
+        .from("Profile")
+        .select("id, OrganizationMember(role, organizationId)")
+        .eq("supabaseUserId", user.id)
+        .maybeSingle();
+
+      if (profileData) {
+        profileId = profileData.id;
+        const om = (profileData as any).OrganizationMember?.[0];
+        if (om) {
+          organizationId = om.organizationId;
+          orgRole = om.role || "OWNER";
+        }
+      }
+    } catch (err) {
+      console.error("[getAuthenticatedAiContext] Supabase RLS error:", err);
+    }
+  }
+
+  if (!profileId || !organizationId) {
     return {
       success: false,
       response: NextResponse.json(
@@ -80,15 +88,14 @@ export async function getAuthenticatedAiContext(): Promise<
     };
   }
 
-  const primaryMembership = profile.organizationMembers[0];
   return {
     success: true,
     context: {
       userId: user.id,
       email: user.email!,
-      profileId: profile.id,
-      organizationId: primaryMembership.organizationId,
-      orgRole: primaryMembership.role,
+      profileId,
+      organizationId,
+      orgRole,
     },
   };
 }
