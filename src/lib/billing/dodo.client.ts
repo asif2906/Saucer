@@ -4,11 +4,23 @@ export class DodoClient {
   private static instance: DodoPayments | null = null;
 
   public static getApiKey(): string {
-    return process.env.DODO_PAYMENTS_API_KEY || "dodo_test_mock_api_key_placeholder";
+    const key = process.env.DODO_PAYMENTS_API_KEY;
+    if (!key || key.includes("placeholder") || key.includes("mock")) {
+      throw new Error(
+        "Dodo Payments integration requires DODO_PAYMENTS_API_KEY to be configured in your environment variables."
+      );
+    }
+    return key;
   }
 
   public static getWebhookKey(): string {
-    return process.env.DODO_PAYMENTS_WEBHOOK_KEY || "dodo_whsec_mock_key_placeholder";
+    const key = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
+    if (!key || key.includes("placeholder") || key.includes("mock")) {
+      throw new Error(
+        "Dodo Payments webhook requires DODO_PAYMENTS_WEBHOOK_KEY to be configured in your environment variables."
+      );
+    }
+    return key;
   }
 
   public static getEnvironment(): "test_mode" | "live_mode" {

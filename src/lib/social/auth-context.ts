@@ -31,23 +31,63 @@ export async function getSocialAuthContext(): Promise<
     };
   }
 
-  const profile = await prisma.profile.findUnique({
-    where: { supabaseUserId: user.id },
-    include: {
-      organizationMembers: {
+  let profileId = "";
+  let organizationId = "";
+  let workspaceId = "";
+  let orgRole = "OWNER";
+
+  // 1. Try Prisma if DATABASE_URL is configured
+  if (process.env.DATABASE_URL) {
+    try {
+      const profile = await prisma.profile.findUnique({
+        where: { supabaseUserId: user.id },
         include: {
-          organization: {
-            include: { workspaces: true },
+          organizationMembers: {
+            include: {
+              organization: {
+                include: { workspaces: true },
+              },
+            },
           },
         },
-      },
-      workspaceMembers: {
-        include: { workspace: true },
-      },
-    },
-  });
+      });
 
-  if (!profile || profile.organizationMembers.length === 0) {
+      if (profile && profile.organizationMembers.length > 0) {
+        profileId = profile.id;
+        const activeOrgMember = profile.organizationMembers[0];
+        organizationId = activeOrgMember.organization.id;
+        workspaceId = activeOrgMember.organization.workspaces[0]?.id || "";
+        orgRole = activeOrgMember.role;
+      }
+    } catch (err) {
+      console.warn("[getSocialAuthContext] Prisma lookup failed, falling back to Supabase client:", err);
+    }
+  }
+
+  // 2. Direct Supabase RLS query fallback
+  if (!profileId) {
+    try {
+      const { data: profile, error: pErr } = await supabase
+        .from("Profile")
+        .select("id, OrganizationMember(role, Organization(id, Workspace(id)))")
+        .eq("supabaseUserId", user.id)
+        .maybeSingle();
+
+      if (profile) {
+        profileId = profile.id;
+        const om = (profile as any).OrganizationMember?.[0];
+        if (om?.Organization) {
+          organizationId = om.Organization.id;
+          orgRole = om.role || "OWNER";
+          workspaceId = om.Organization.Workspace?.[0]?.id || "";
+        }
+      }
+    } catch (err) {
+      console.error("[getSocialAuthContext] Supabase RLS lookup error:", err);
+    }
+  }
+
+  if (!profileId || !organizationId) {
     return {
       success: false,
       response: NextResponse.json(
@@ -57,22 +97,8 @@ export async function getSocialAuthContext(): Promise<
     };
   }
 
-  const activeOrgMember = profile.organizationMembers[0];
-  const org = activeOrgMember.organization;
-
-  // Find default or first workspace
-  let workspaceId = org.workspaces[0]?.id;
   if (!workspaceId) {
-    // Auto-create default workspace if none exists
-    const defaultWorkspace = await prisma.workspace.create({
-      data: {
-        organizationId: org.id,
-        name: "Primary Workspace",
-        slug: "primary",
-        isDefault: true,
-      },
-    });
-    workspaceId = defaultWorkspace.id;
+    workspaceId = `ws-${organizationId}`;
   }
 
   return {
@@ -80,10 +106,10 @@ export async function getSocialAuthContext(): Promise<
     context: {
       userId: user.id,
       email: user.email!,
-      profileId: profile.id,
-      organizationId: org.id,
+      profileId,
+      organizationId,
       workspaceId,
-      orgRole: activeOrgMember.role,
+      orgRole,
     },
   };
 }

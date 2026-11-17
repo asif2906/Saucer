@@ -18,11 +18,19 @@ export class YouTubeProvider implements ISocialProvider {
   ];
 
   private getClientId(): string {
-    return process.env.GOOGLE_CLIENT_ID || process.env.YOUTUBE_CLIENT_ID || "google_mock_client_id";
+    const id = process.env.GOOGLE_CLIENT_ID || process.env.YOUTUBE_CLIENT_ID;
+    if (!id || id.includes("mock")) {
+      throw new Error("YouTube integration requires GOOGLE_CLIENT_ID (or YOUTUBE_CLIENT_ID) to be configured in your environment variables.");
+    }
+    return id;
   }
 
   private getClientSecret(): string {
-    return process.env.GOOGLE_CLIENT_SECRET || process.env.YOUTUBE_CLIENT_SECRET || "google_mock_client_secret";
+    const secret = process.env.GOOGLE_CLIENT_SECRET || process.env.YOUTUBE_CLIENT_SECRET;
+    if (!secret || secret.includes("mock")) {
+      throw new Error("YouTube integration requires GOOGLE_CLIENT_SECRET (or YOUTUBE_CLIENT_SECRET) to be configured in your environment variables.");
+    }
+    return secret;
   }
 
   public getAuthorizationUrl(params: {
@@ -46,19 +54,6 @@ export class YouTubeProvider implements ISocialProvider {
   }): Promise<OAuthTokenResult> {
     const clientId = this.getClientId();
     const clientSecret = this.getClientSecret();
-
-    if (clientId.includes("mock") || clientSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 3600 * 1000);
-      return {
-        accessToken: `yt_access_token_${Date.now()}`,
-        refreshToken: `yt_refresh_token_${Date.now()}`,
-        expiresIn: 3600,
-        expiresAt,
-        scopes: this.scopes,
-        providerAccountId: `yt_channel_${Date.now()}`,
-        tokenType: "Bearer",
-      };
-    }
 
     const tokenUrl = "https://oauth2.googleapis.com/token";
     const bodyParams = new URLSearchParams({
@@ -97,17 +92,6 @@ export class YouTubeProvider implements ISocialProvider {
     const clientId = this.getClientId();
     const clientSecret = this.getClientSecret();
 
-    if (clientId.includes("mock") || clientSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 3600 * 1000);
-      return {
-        accessToken: `yt_refreshed_token_${Date.now()}`,
-        refreshToken,
-        expiresIn: 3600,
-        expiresAt,
-        scopes: this.scopes,
-      };
-    }
-
     const tokenUrl = "https://oauth2.googleapis.com/token";
     const bodyParams = new URLSearchParams({
       client_id: clientId,
@@ -138,16 +122,6 @@ export class YouTubeProvider implements ISocialProvider {
   }
 
   public async getAccountProfile(accessToken: string): Promise<SocialAccountProfile> {
-    if (accessToken.includes("mock")) {
-      return {
-        id: "yt_channel_UC987654321",
-        name: "Acme Tech Studio",
-        handle: "@acmetechstudio",
-        accountType: "channel",
-        avatarUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=150",
-      };
-    }
-
     const channelsUrl = "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true";
     const res = await fetch(channelsUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },

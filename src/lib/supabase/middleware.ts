@@ -9,13 +9,18 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Safe development fallback: if credentials are not configured or are placeholder, pass through
+  // If credentials are not configured or are placeholder, do not allow unauthenticated access to /app
   if (
     !supabaseUrl ||
     !supabaseAnonKey ||
     supabaseUrl.includes("placeholder") ||
     supabaseAnonKey.includes("placeholder")
   ) {
+    if (request.nextUrl.pathname.startsWith("/app")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 

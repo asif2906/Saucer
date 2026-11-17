@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUser } from "@/contexts/user-context";
 import { 
   Users, 
   UserPlus, 
@@ -31,46 +32,49 @@ interface TeamMember {
   avatar?: string;
 }
 
-const INITIAL_MEMBERS: TeamMember[] = [
-  {
-    id: "m-1",
-    name: "Alex Mercer",
-    email: "alex@saucer.app",
-    role: "Owner",
-    status: "Active",
-    joinedDate: "Nov 01, 2026",
-  },
-  {
-    id: "m-2",
-    name: "Sarah Chen",
-    email: "sarah@saucer.app",
-    role: "Admin",
-    status: "Active",
-    joinedDate: "Nov 04, 2026",
-  },
-  {
-    id: "m-3",
-    name: "David Kim",
-    email: "david.kim@agency.io",
-    role: "Editor",
-    status: "Active",
-    joinedDate: "Nov 08, 2026",
-  },
-  {
-    id: "m-4",
-    name: "Elena Rostova",
-    email: "elena@clientcorp.com",
-    role: "Viewer",
-    status: "Pending",
-    joinedDate: "Nov 15, 2026",
-  },
-];
-
 export default function TeamPage() {
-  const [members, setMembers] = useState<TeamMember[]>(INITIAL_MEMBERS);
+  const { user, organization } = useUser();
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"Admin" | "Editor" | "Viewer">("Editor");
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadMembers() {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/team");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.members && data.members.length > 0) {
+            setMembers(data.members);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load team members:", err);
+      } finally {
+        setLoading(false);
+      }
+
+      // Default to current authenticated user as Owner
+      if (user) {
+        setMembers([
+          {
+            id: user.id,
+            name: user.fullName || "User",
+            email: user.email,
+            role: "Owner",
+            status: "Active",
+            joinedDate: "Owner",
+          },
+        ]);
+      }
+    }
+
+    loadMembers();
+  }, [user]);
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();

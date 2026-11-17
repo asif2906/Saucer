@@ -45,49 +45,9 @@ interface WebhookItem {
   lastDelivery: string;
 }
 
-const INITIAL_FEEDS: RssFeed[] = [
-  {
-    id: "feed-1",
-    name: "Engineering Blog RSS",
-    url: "https://saucer.app/blog/rss.xml",
-    interval: "Every 30 min",
-    targetPlatforms: ["twitter", "linkedin"],
-    template: "New blog post: {title} {link} #tech",
-    isActive: true,
-    lastRun: "18 minutes ago",
-    publishedCount: 24,
-  },
-  {
-    id: "feed-2",
-    name: "Product Releases",
-    url: "https://github.com/saucer/saucer/releases.atom",
-    interval: "Every 1 hour",
-    targetPlatforms: ["twitter"],
-    template: "Saucer update: {title} is live! Check the release notes: {link}",
-    isActive: false,
-    lastRun: "3 hours ago",
-    publishedCount: 12,
-  },
-];
-
-const INITIAL_WEBHOOKS: WebhookItem[] = [
-  {
-    id: "wh-1",
-    url: "https://api.internal.company.com/social-events",
-    events: ["post.published", "post.failed"],
-    isActive: true,
-    secret: "whsec_98f4a18274ec...",
-    lastStatus: 200,
-    lastDelivery: "Nov 16, 21:40 UTC",
-  },
-];
-
-const AUTOMATION_LOGS = [
-  { id: "log-1", time: "18m ago", type: "RSS Feed", name: "Engineering Blog RSS", event: "Fetched 0 new items", status: "Success (200)" },
-  { id: "log-2", time: "2h ago", type: "Webhook", name: "Outgoing Dispatch", event: "post.published dispatched", status: "Delivered (200)" },
-  { id: "log-3", time: "3h ago", type: "RSS Feed", name: "Product Releases", event: "Paused by user", status: "Idle" },
-  { id: "log-4", time: "5h ago", type: "RSS Feed", name: "Engineering Blog RSS", event: "Published post to X & LinkedIn", status: "Success (200)" },
-];
+const INITIAL_FEEDS: RssFeed[] = [];
+const INITIAL_WEBHOOKS: WebhookItem[] = [];
+const AUTOMATION_LOGS: Array<{ id: string; time: string; type: string; name: string; event: string; status: string }> = [];
 
 export default function AutomationsPage() {
   const [feeds, setFeeds] = useState<RssFeed[]>(INITIAL_FEEDS);
@@ -254,80 +214,90 @@ export default function AutomationsPage() {
         )}
 
         {/* Feeds List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {feeds.map((feed) => (
-            <Card key={feed.id} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-sm font-semibold">{feed.name}</CardTitle>
-                    <CardDescription className="text-xs font-mono truncate max-w-[280px]">
-                      {feed.url}
-                    </CardDescription>
-                  </div>
-                  <Badge 
-                    variant={feed.isActive ? "default" : "secondary"}
-                    className={feed.isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px]" : "text-[10px]"}
-                  >
-                    {feed.isActive ? "Active" : "Paused"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2 text-xs text-muted-foreground pb-3">
-                <div className="p-2 rounded bg-muted/40 font-mono text-[11px] text-foreground">
-                  {feed.template}
-                </div>
-
-                <div className="flex items-center justify-between pt-1 text-[11px]">
-                  <div className="flex items-center gap-1.5">
-                    <span>Target Networks:</span>
-                    <div className="flex items-center gap-1">
-                      {feed.targetPlatforms.map((p) => (
-                        <PlatformIcon key={p} platform={p} size={14} />
-                      ))}
+        {feeds.length === 0 ? (
+          <div className="py-8 text-center space-y-2 border border-dashed rounded-xl">
+            <p className="text-xs text-muted-foreground">No RSS feeds configured yet.</p>
+            <Button variant="outline" size="sm" onClick={() => setShowRssModal(true)} className="text-xs">
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              <span>Connect First Feed</span>
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {feeds.map((feed) => (
+              <Card key={feed.id} className="relative">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-semibold">{feed.name}</CardTitle>
+                      <CardDescription className="text-xs font-mono truncate max-w-[280px]">
+                        {feed.url}
+                      </CardDescription>
                     </div>
+                    <Badge 
+                      variant={feed.isActive ? "default" : "secondary"}
+                      className={feed.isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px]" : "text-[10px]"}
+                    >
+                      {feed.isActive ? "Active" : "Paused"}
+                    </Badge>
                   </div>
-                  <div className="font-mono">{feed.publishedCount} published</div>
-                </div>
+                </CardHeader>
+                <CardContent className="space-y-2 text-xs text-muted-foreground pb-3">
+                  <div className="p-2 rounded bg-muted/40 font-mono text-[11px] text-foreground">
+                    {feed.template}
+                  </div>
 
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>Last checked: {feed.lastRun} ({feed.interval})</span>
-                </div>
-              </CardContent>
-              <CardFooter className="flex items-center justify-between border-t pt-3 text-xs">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleFeedStatus(feed.id)}
-                  className="h-7 text-xs gap-1"
-                >
-                  {feed.isActive ? (
-                    <>
-                      <Pause className="h-3 w-3" />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3" />
-                      Resume
-                    </>
-                  )}
-                </Button>
+                  <div className="flex items-center justify-between pt-1 text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <span>Target Networks:</span>
+                      <div className="flex items-center gap-1">
+                        {feed.targetPlatforms.map((p) => (
+                          <PlatformIcon key={p} platform={p} size={14} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="font-mono">{feed.publishedCount} published</div>
+                  </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFeeds((prev) => prev.filter((f) => f.id !== feed.id))}
-                  className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Remove
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>Last checked: {feed.lastRun} ({feed.interval})</span>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex items-center justify-between border-t pt-3 text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleFeedStatus(feed.id)}
+                    className="h-7 text-xs gap-1"
+                  >
+                    {feed.isActive ? (
+                      <>
+                        <Pause className="h-3 w-3" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3 w-3" />
+                        Resume
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFeeds((prev) => prev.filter((f) => f.id !== feed.id))}
+                    className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Remove
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Outgoing Webhooks Section */}
@@ -405,57 +375,67 @@ export default function AutomationsPage() {
         {/* Webhooks Table */}
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b text-muted-foreground bg-muted/20">
-                    <th className="p-3 font-medium">Endpoint URL</th>
-                    <th className="p-3 font-medium">Subscribed Events</th>
-                    <th className="p-3 font-medium">Secret</th>
-                    <th className="p-3 font-medium">Last Status</th>
-                    <th className="p-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {webhooks.map((wh) => (
-                    <tr key={wh.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3 font-mono font-medium max-w-[240px] truncate">
-                        {wh.url}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex flex-wrap gap-1">
-                          {wh.events.map((ev) => (
-                            <Badge key={ev} variant="outline" className="text-[10px]">
-                              {ev}
-                            </Badge>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="p-3 font-mono text-[11px] text-muted-foreground">
-                        {wh.secret}
-                      </td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                          {wh.lastStatus} OK
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setWebhooks((prev) => prev.filter((w) => w.id !== wh.id))}
-                          className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Delete
-                        </Button>
-                      </td>
+            {webhooks.length === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <p className="text-xs text-muted-foreground">No outgoing webhooks registered.</p>
+                <Button variant="outline" size="sm" onClick={() => setShowWebhookModal(true)} className="text-xs">
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Register First Webhook</span>
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b text-muted-foreground bg-muted/20">
+                      <th className="p-3 font-medium">Endpoint URL</th>
+                      <th className="p-3 font-medium">Subscribed Events</th>
+                      <th className="p-3 font-medium">Secret</th>
+                      <th className="p-3 font-medium">Last Status</th>
+                      <th className="p-3 font-medium text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {webhooks.map((wh) => (
+                      <tr key={wh.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-3 font-mono font-medium max-w-[240px] truncate">
+                          {wh.url}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap gap-1">
+                            {wh.events.map((ev) => (
+                              <Badge key={ev} variant="outline" className="text-[10px]">
+                                {ev}
+                              </Badge>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                          {wh.secret}
+                        </td>
+                        <td className="p-3">
+                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                            {wh.lastStatus} OK
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setWebhooks((prev) => prev.filter((w) => w.id !== wh.id))}
+                            className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -472,23 +452,29 @@ export default function AutomationsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-xs">
-            {AUTOMATION_LOGS.map((log) => (
-              <div key={log.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border">
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-muted-foreground w-14 font-mono">{log.time}</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {log.type}
-                  </Badge>
-                  <span className="font-medium text-foreground">{log.name}:</span>
-                  <span className="text-muted-foreground">{log.event}</span>
+          {AUTOMATION_LOGS.length === 0 ? (
+            <div className="py-6 text-center text-xs text-muted-foreground">
+              No recent automation events. Activity will appear here once feeds poll or webhooks trigger.
+            </div>
+          ) : (
+            <div className="space-y-2 text-xs">
+              {AUTOMATION_LOGS.map((log) => (
+                <div key={log.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-muted-foreground w-14 font-mono">{log.time}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {log.type}
+                    </Badge>
+                    <span className="font-semibold text-foreground">{log.name}:</span>
+                    <span className="text-muted-foreground">{log.event}</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
+                    {log.status}
+                  </span>
                 </div>
-                <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                  {log.status}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

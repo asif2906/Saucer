@@ -19,11 +19,19 @@ export class PinterestProvider implements ISocialProvider {
   ];
 
   private getAppId(): string {
-    return process.env.PINTEREST_APP_ID || "pinterest_mock_app_id";
+    const id = process.env.PINTEREST_APP_ID;
+    if (!id || id.includes("mock")) {
+      throw new Error("Pinterest integration requires PINTEREST_APP_ID to be configured in your environment variables.");
+    }
+    return id;
   }
 
   private getAppSecret(): string {
-    return process.env.PINTEREST_APP_SECRET || "pinterest_mock_app_secret";
+    const secret = process.env.PINTEREST_APP_SECRET;
+    if (!secret || secret.includes("mock")) {
+      throw new Error("Pinterest integration requires PINTEREST_APP_SECRET to be configured in your environment variables.");
+    }
+    return secret;
   }
 
   public getAuthorizationUrl(params: {
@@ -45,19 +53,6 @@ export class PinterestProvider implements ISocialProvider {
   }): Promise<OAuthTokenResult> {
     const appId = this.getAppId();
     const appSecret = this.getAppSecret();
-
-    if (appId.includes("mock") || appSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000);
-      return {
-        accessToken: `pin_access_token_${Date.now()}`,
-        refreshToken: `pin_refresh_token_${Date.now()}`,
-        expiresIn: 30 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-        providerAccountId: `pin_user_${Date.now()}`,
-        tokenType: "Bearer",
-      };
-    }
 
     const tokenUrl = "https://api.pinterest.com/v5/oauth/token";
     const basicAuth = Buffer.from(`${appId}:${appSecret}`).toString("base64");
@@ -99,17 +94,6 @@ export class PinterestProvider implements ISocialProvider {
     const appId = this.getAppId();
     const appSecret = this.getAppSecret();
 
-    if (appId.includes("mock") || appSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000);
-      return {
-        accessToken: `pin_refreshed_token_${Date.now()}`,
-        refreshToken,
-        expiresIn: 30 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-      };
-    }
-
     const tokenUrl = "https://api.pinterest.com/v5/oauth/token";
     const basicAuth = Buffer.from(`${appId}:${appSecret}`).toString("base64");
 
@@ -143,16 +127,6 @@ export class PinterestProvider implements ISocialProvider {
   }
 
   public async getAccountProfile(accessToken: string): Promise<SocialAccountProfile> {
-    if (accessToken.includes("mock")) {
-      return {
-        id: "pin_user_991203",
-        name: "Acme Moodboards",
-        handle: "acmemoodboards",
-        accountType: "profile",
-        avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
-      };
-    }
-
     const userUrl = "https://api.pinterest.com/v5/user_account";
     const res = await fetch(userUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },

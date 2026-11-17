@@ -20,11 +20,19 @@ export class InstagramProvider implements ISocialProvider {
   ];
 
   private getAppId(): string {
-    return process.env.META_APP_ID || process.env.INSTAGRAM_APP_ID || "meta_app_mock_id";
+    const id = process.env.META_APP_ID || process.env.INSTAGRAM_APP_ID;
+    if (!id || id.includes("mock")) {
+      throw new Error("Instagram integration requires META_APP_ID (or INSTAGRAM_APP_ID) to be configured in your environment variables.");
+    }
+    return id;
   }
 
   private getAppSecret(): string {
-    return process.env.META_APP_SECRET || process.env.INSTAGRAM_APP_SECRET || "meta_app_mock_secret";
+    const secret = process.env.META_APP_SECRET || process.env.INSTAGRAM_APP_SECRET;
+    if (!secret || secret.includes("mock")) {
+      throw new Error("Instagram integration requires META_APP_SECRET (or INSTAGRAM_APP_SECRET) to be configured in your environment variables.");
+    }
+    return secret;
   }
 
   public getApiVersion(): string {
@@ -50,20 +58,6 @@ export class InstagramProvider implements ISocialProvider {
   }): Promise<OAuthTokenResult> {
     const appId = this.getAppId();
     const appSecret = this.getAppSecret();
-
-    // In local sandbox / testing without live Meta app credentials
-    if (appId.includes("mock") || appSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
-      return {
-        accessToken: `ig_long_lived_token_${Date.now()}`,
-        refreshToken: `ig_refresh_token_${Date.now()}`,
-        expiresIn: 60 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-        providerAccountId: `ig_acc_${Date.now()}`,
-        tokenType: "Bearer",
-      };
-    }
 
     // Step 1: Exchange code for short-lived token
     const tokenUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
@@ -108,16 +102,6 @@ export class InstagramProvider implements ISocialProvider {
     const appId = this.getAppId();
     const appSecret = this.getAppSecret();
 
-    if (appId.includes("mock") || appSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      return {
-        accessToken: `ig_refreshed_token_${Date.now()}`,
-        expiresIn: 60 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-      };
-    }
-
     const refreshUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     refreshUrl.searchParams.set("grant_type", "fb_exchange_token");
     refreshUrl.searchParams.set("client_id", appId);
@@ -141,16 +125,6 @@ export class InstagramProvider implements ISocialProvider {
   }
 
   public async getAccountProfile(accessToken: string): Promise<SocialAccountProfile> {
-    if (accessToken.includes("mock")) {
-      return {
-        id: "ig_business_10829182",
-        name: "Acme Creative Studio",
-        handle: "acme.studio",
-        accountType: "business",
-        avatarUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150",
-      };
-    }
-
     // Discover Instagram Business Accounts via Facebook Pages
     const accountsUrl = `https://graph.facebook.com/${this.getApiVersion()}/me/accounts?fields=id,name,instagram_business_account{id,username,name,profile_picture_url}&access_token=${accessToken}`;
     const res = await fetch(accountsUrl);

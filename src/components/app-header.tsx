@@ -18,7 +18,7 @@ import {
   Sun,
   Menu,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/contexts/user-context";
 import { toast } from "sonner";
 
 interface AppHeaderProps {
@@ -27,6 +27,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const router = useRouter();
+  const { user, credits, signOut } = useUser();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
@@ -41,14 +42,8 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   };
 
   const handleSignOut = async () => {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch {
-      // Ignored in dev
-    }
+    await signOut();
     toast.success("Signed out of Saucer");
-    router.push("/login");
   };
 
   return (
@@ -83,10 +78,10 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         <Link
           href="/app/ai"
           className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-violet-600/5 hover:bg-violet-600/10 border-violet-500/20 text-violet-600 dark:text-violet-400 text-xs font-semibold transition-colors"
-          title="Saucer AI Free-Tier Quota: 48/50 Available"
+          title={`Saucer AI Quota: ${credits?.balance ?? 50}/${credits?.monthlyAllowance ?? 50} Available`}
         >
           <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-          <span>48 AI Credits</span>
+          <span>{credits?.balance ?? 50} AI Credits</span>
         </Link>
 
         {/* Theme Toggle */}
@@ -135,9 +130,9 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
             className="flex items-center gap-2 p-1 rounded-full hover:ring-2 hover:ring-violet-500/20 transition-all"
           >
             <Avatar className="w-8 h-8 border border-border">
-              <AvatarImage src="" />
+              <AvatarImage src={user?.avatarUrl || ""} />
               <AvatarFallback className="bg-violet-600 text-white font-bold text-xs">
-                SC
+                {user?.initials || "U"}
               </AvatarFallback>
             </Avatar>
           </button>
@@ -147,8 +142,12 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
               <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
               <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-card shadow-2xl z-50 p-1.5 space-y-1 text-xs">
                 <div className="px-3 py-2 border-b">
-                  <div className="font-semibold text-foreground">Sarah Connor</div>
-                  <div className="text-[11px] text-muted-foreground">sarah@acme.com</div>
+                  <div className="font-semibold text-foreground truncate">
+                    {user?.fullName || "Saucer User"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {user?.email || ""}
+                  </div>
                 </div>
 
                 <Link

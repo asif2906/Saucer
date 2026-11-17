@@ -144,7 +144,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
             <span>Saucer Free Tier</span>
             <span className="text-[10px] text-emerald-500 font-bold">Active</span>
           </div>
-          <span>3 / 3 Channels Connected</span>
+          <span>Multi-Channel Publishing</span>
         </div>
       </div>
     </aside>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUser } from "@/contexts/user-context";
 import { 
   Briefcase, 
   Plus, 
@@ -36,47 +37,23 @@ interface WorkspaceItem {
   isActive: boolean;
 }
 
-const INITIAL_WORKSPACES: WorkspaceItem[] = [
-  {
-    id: "ws-1",
-    name: "Acme Corp Brand",
-    slug: "acme-corp",
-    role: "Owner",
-    membersCount: 4,
-    channelsCount: 6,
-    postsScheduled: 12,
-    timezone: "America/New_York (UTC-5)",
-    color: "#10b981", // Emerald
-    isActive: true,
-  },
-  {
-    id: "ws-2",
-    name: "Saucer Community",
-    slug: "saucer-community",
-    role: "Admin",
-    membersCount: 8,
-    channelsCount: 4,
-    postsScheduled: 5,
-    timezone: "UTC",
-    color: "#6366f1", // Indigo
-    isActive: false,
-  },
-  {
-    id: "ws-3",
-    name: "Personal Tech Blog",
-    slug: "personal-tech",
-    role: "Owner",
-    membersCount: 1,
-    channelsCount: 2,
-    postsScheduled: 2,
-    timezone: "America/Los_Angeles (UTC-8)",
-    color: "#f59e0b", // Amber
-    isActive: false,
-  },
-];
-
 export default function WorkspacesPage() {
-  const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>(INITIAL_WORKSPACES);
+  const { organization, currentWorkspace, switchWorkspace, refreshUser } = useUser();
+  const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([
+    {
+      id: "ws-main",
+      name: "Main Workspace",
+      slug: "main",
+      role: "Owner",
+      membersCount: 1,
+      channelsCount: 0,
+      postsScheduled: 0,
+      timezone: "UTC",
+      color: "#10b981",
+      isActive: true,
+    },
+  ]);
+  const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newSlug, setNewSlug] = useState("");
@@ -84,9 +61,60 @@ export default function WorkspacesPage() {
   const [newTimezone, setNewTimezone] = useState("UTC");
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    async function loadWorkspaces() {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/workspaces");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.workspaces) {
+            const formatted = data.workspaces.map((w: any) => ({
+              id: w.id,
+              name: w.name,
+              slug: w.slug,
+              role: "Owner",
+              membersCount: 1,
+              channelsCount: 0,
+              postsScheduled: 0,
+              timezone: "UTC",
+              color: w.isDefault ? "#10b981" : "#6366f1",
+              isActive: currentWorkspace?.id === w.id || w.isDefault,
+            }));
+            setWorkspaces(formatted);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load workspaces:", err);
+      } finally {
+        setLoading(false);
+      }
+
+      // Fallback to active organization default workspace
+      setWorkspaces([
+        {
+          id: currentWorkspace?.id || "ws-main",
+          name: currentWorkspace?.name || "Main Workspace",
+          slug: currentWorkspace?.slug || "main",
+          role: "Owner",
+          membersCount: 1,
+          channelsCount: 0,
+          postsScheduled: 0,
+          timezone: "UTC",
+          color: "#10b981",
+          isActive: true,
+        },
+      ]);
+    }
+
+    loadWorkspaces();
+  }, [currentWorkspace?.id]);
+
   const activeWorkspace = workspaces.find((w) => w.isActive) || workspaces[0];
 
   const handleSwitchWorkspace = (id: string) => {
+    switchWorkspace(id);
     setWorkspaces((prev) =>
       prev.map((w) => ({
         ...w,
@@ -98,30 +126,48 @@ export default function WorkspacesPage() {
     setTimeout(() => setFeedbackMsg(null), 3500);
   };
 
-  const handleCreateWorkspace = (e: React.FormEvent) => {
+  const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
 
-    const generatedSlug = newSlug.trim() || newName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    const newWs: WorkspaceItem = {
-      id: `ws-${Date.now()}`,
-      name: newName.trim(),
-      slug: generatedSlug,
-      role: "Owner",
-      membersCount: 1,
-      channelsCount: 0,
-      postsScheduled: 0,
-      timezone: newTimezone,
-      color: newColor,
-      isActive: false,
-    };
+    try {
+      const res = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim() }),
+      });
 
-    setWorkspaces((prev) => [...prev, newWs]);
-    setNewName("");
-    setNewSlug("");
-    setIsCreating(false);
-    setFeedbackMsg(`Workspace "${newWs.name}" created successfully.`);
-    setTimeout(() => setFeedbackMsg(null), 3500);
+      if (res.ok) {
+        const data = await res.json();
+        const created = data.workspace;
+        const newWsItem: WorkspaceItem = {
+          id: created.id,
+          name: created.name,
+          slug: created.slug,
+          role: "Owner",
+          membersCount: 1,
+          channelsCount: 0,
+          postsScheduled: 0,
+          timezone: newTimezone,
+          color: newColor,
+          isActive: false,
+        };
+
+        setWorkspaces((prev) => [...prev, newWsItem]);
+        setNewName("");
+        setNewSlug("");
+        setIsCreating(false);
+        setFeedbackMsg(`Workspace "${created.name}" created successfully.`);
+        await refreshUser();
+      } else {
+        const errData = await res.json();
+        setFeedbackMsg(errData.error || "Failed to create workspace.");
+      }
+    } catch (err: any) {
+      setFeedbackMsg(err.message || "Failed to create workspace.");
+    } finally {
+      setTimeout(() => setFeedbackMsg(null), 3500);
+    }
   };
 
   return (
@@ -328,13 +374,13 @@ export default function WorkspacesPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base font-semibold">Active Workspace Brand Kit: {activeWorkspace.name}</CardTitle>
+              <CardTitle className="text-base font-semibold">Active Workspace Brand Kit: {activeWorkspace?.name || "Main Workspace"}</CardTitle>
               <CardDescription className="text-xs">
                 Assets and defaults automatically used by Saucer AI during caption generation and scheduling
               </CardDescription>
             </div>
             <Badge variant="outline" className="text-xs font-mono">
-              ID: {activeWorkspace.id}
+              ID: {activeWorkspace?.id || "main"}
             </Badge>
           </div>
         </CardHeader>
@@ -348,7 +394,7 @@ export default function WorkspacesPage() {
               </label>
               <p className="text-xs text-muted-foreground">Used for media asset canvas backgrounds and banner rendering.</p>
               <div className="flex items-center gap-2 pt-1">
-                {[activeWorkspace.color, "#0f172a", "#38bdf8", "#f43f5e"].map((c, idx) => (
+                {[activeWorkspace?.color || "#10b981", "#0f172a", "#38bdf8", "#f43f5e"].map((c, idx) => (
                   <div key={idx} className="flex flex-col items-center gap-1">
                     <div className="h-8 w-12 rounded border shadow-sm" style={{ backgroundColor: c }} />
                     <span className="text-[10px] font-mono text-muted-foreground">{c}</span>

@@ -19,11 +19,19 @@ export class LinkedInProvider implements ISocialProvider {
   ];
 
   private getClientId(): string {
-    return process.env.LINKEDIN_CLIENT_ID || "linkedin_mock_client_id";
+    const id = process.env.LINKEDIN_CLIENT_ID;
+    if (!id || id.includes("mock")) {
+      throw new Error("LinkedIn integration requires LINKEDIN_CLIENT_ID to be configured in your environment variables.");
+    }
+    return id;
   }
 
   private getClientSecret(): string {
-    return process.env.LINKEDIN_CLIENT_SECRET || "linkedin_mock_client_secret";
+    const secret = process.env.LINKEDIN_CLIENT_SECRET;
+    if (!secret || secret.includes("mock")) {
+      throw new Error("LinkedIn integration requires LINKEDIN_CLIENT_SECRET to be configured in your environment variables.");
+    }
+    return secret;
   }
 
   public getApiVersion(): string {
@@ -49,19 +57,6 @@ export class LinkedInProvider implements ISocialProvider {
   }): Promise<OAuthTokenResult> {
     const clientId = this.getClientId();
     const clientSecret = this.getClientSecret();
-
-    if (clientId.includes("mock") || clientSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      return {
-        accessToken: `li_access_token_${Date.now()}`,
-        refreshToken: `li_refresh_token_${Date.now()}`,
-        expiresIn: 60 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-        providerAccountId: `li_person_${Date.now()}`,
-        tokenType: "Bearer",
-      };
-    }
 
     const tokenUrl = "https://www.linkedin.com/oauth/v2/accessToken";
     const bodyParams = new URLSearchParams({
@@ -100,17 +95,6 @@ export class LinkedInProvider implements ISocialProvider {
     const clientId = this.getClientId();
     const clientSecret = this.getClientSecret();
 
-    if (clientId.includes("mock") || clientSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      return {
-        accessToken: `li_refreshed_token_${Date.now()}`,
-        refreshToken: `li_refresh_token_${Date.now()}`,
-        expiresIn: 60 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-      };
-    }
-
     const tokenUrl = "https://www.linkedin.com/oauth/v2/accessToken";
     const bodyParams = new URLSearchParams({
       grant_type: "refresh_token",
@@ -141,16 +125,6 @@ export class LinkedInProvider implements ISocialProvider {
   }
 
   public async getAccountProfile(accessToken: string): Promise<SocialAccountProfile> {
-    if (accessToken.includes("mock")) {
-      return {
-        id: "li_urn_person_9918237",
-        name: "Sarah Jenkins, VP Marketing",
-        handle: "sarahjenkins",
-        accountType: "profile",
-        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-      };
-    }
-
     // Call OpenID userinfo endpoint
     const userinfoUrl = "https://api.linkedin.com/v2/userinfo";
     const res = await fetch(userinfoUrl, {

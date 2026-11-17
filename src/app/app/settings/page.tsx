@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useUser } from "@/contexts/user-context";
 import { 
   User, 
   Settings as SettingsIcon, 
@@ -23,13 +24,22 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
+  const { user, refreshUser } = useUser();
   const [activeTab, setActiveTab] = useState<"profile" | "preferences" | "ai" | "notifications">("profile");
 
   // Profile Form State
-  const [displayName, setDisplayName] = useState("Alex Mercer");
-  const [email, setEmail] = useState("alex@saucer.app");
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [displayName, setDisplayName] = useState(user?.fullName || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [timezone, setTimezone] = useState(user?.timezone || "UTC");
   const [language, setLanguage] = useState("en-US");
+
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.fullName || "");
+      setEmail(user.email || "");
+      setTimezone(user.timezone || "UTC");
+    }
+  }, [user]);
 
   // Notification Toggles
   const [notifyPublishFail, setNotifyPublishFail] = useState(true);
@@ -41,12 +51,34 @@ export default function SettingsPage() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [aiAcknowledgeTerms, setAiAcknowledgeTerms] = useState(true);
 
+  const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFeedback("Settings saved successfully.");
-    setTimeout(() => setFeedback(null), 3500);
+    setSaving(true);
+    try {
+      const res = await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: displayName,
+          timezone,
+        }),
+      });
+      if (res.ok) {
+        await refreshUser();
+        setFeedback("Settings saved successfully.");
+      } else {
+        const err = await res.json();
+        setFeedback(err.message || "Failed to save settings.");
+      }
+    } catch (err: any) {
+      setFeedback(err.message || "Network error while saving.");
+    } finally {
+      setSaving(false);
+      setTimeout(() => setFeedback(null), 3500);
+    }
   };
 
   return (

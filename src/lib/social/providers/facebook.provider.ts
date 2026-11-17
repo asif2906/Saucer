@@ -19,11 +19,19 @@ export class FacebookProvider implements ISocialProvider {
   ];
 
   private getAppId(): string {
-    return process.env.META_APP_ID || process.env.FACEBOOK_APP_ID || "meta_app_mock_id";
+    const id = process.env.META_APP_ID || process.env.FACEBOOK_APP_ID;
+    if (!id || id.includes("mock")) {
+      throw new Error("Facebook integration requires META_APP_ID to be configured in your environment variables.");
+    }
+    return id;
   }
 
   private getAppSecret(): string {
-    return process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "meta_app_mock_secret";
+    const secret = process.env.META_APP_SECRET || process.env.FACEBOOK_APP_SECRET;
+    if (!secret || secret.includes("mock")) {
+      throw new Error("Facebook integration requires META_APP_SECRET to be configured in your environment variables.");
+    }
+    return secret;
   }
 
   public getApiVersion(): string {
@@ -49,19 +57,6 @@ export class FacebookProvider implements ISocialProvider {
   }): Promise<OAuthTokenResult> {
     const appId = this.getAppId();
     const appSecret = this.getAppSecret();
-
-    if (appId.includes("mock") || appSecret.includes("mock")) {
-      const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      return {
-        accessToken: `fb_page_token_${Date.now()}`,
-        refreshToken: `fb_refresh_token_${Date.now()}`,
-        expiresIn: 60 * 24 * 3600,
-        expiresAt,
-        scopes: this.scopes,
-        providerAccountId: `fb_page_${Date.now()}`,
-        tokenType: "Bearer",
-      };
-    }
 
     const tokenUrl = new URL(`https://graph.facebook.com/${this.getApiVersion()}/oauth/access_token`);
     tokenUrl.searchParams.set("client_id", appId);
@@ -99,16 +94,6 @@ export class FacebookProvider implements ISocialProvider {
   }
 
   public async getAccountProfile(accessToken: string): Promise<SocialAccountProfile> {
-    if (accessToken.includes("mock")) {
-      return {
-        id: "fb_page_89283749",
-        name: "Acme Global Official Page",
-        handle: "acmeglobal",
-        accountType: "page",
-        avatarUrl: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=150",
-      };
-    }
-
     // Fetch managed Facebook Pages with page-scoped tokens
     const pagesUrl = `https://graph.facebook.com/${this.getApiVersion()}/me/accounts?fields=id,name,category,access_token,picture{url}&access_token=${accessToken}`;
     const res = await fetch(pagesUrl);

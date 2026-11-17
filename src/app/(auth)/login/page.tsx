@@ -24,8 +24,9 @@ export default function LoginPage() {
 
     try {
       if (!isSupabaseConfigured()) {
-        toast.info("Development Mode: Logging into Saucer dashboard with local preview.");
-        router.push("/app");
+        const msg = "Supabase credentials are not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment variables.";
+        setErrorMsg(msg);
+        toast.error(msg);
         return;
       }
 
@@ -36,12 +37,6 @@ export default function LoginPage() {
       });
 
       if (error) {
-        // If credentials are completely unconfigured, allow local preview
-        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
-          toast.info("Development Mode: Logging into Saucer dashboard with local preview.");
-          router.push("/app");
-          return;
-        }
         setErrorMsg(error.message);
         toast.error(error.message);
         return;
