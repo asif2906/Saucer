@@ -6,4 +6,5 @@ export const inngest = new Inngest({
   id: "saucer-publishing-engine",
   name: "Saucer Social Publishing Engine",
   eventKey: process.env.INNGEST_EVENT_KEY,
+  signingKey: process.env.INNGEST_SIGNING_KEY || "signkey-test-saucer-inngest-default",
 });
