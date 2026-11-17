@@ -45,22 +45,30 @@ Saucer references the comprehensive capabilities of the open-source **Postiz** p
 
 ## 4. Master Documentation Index
 
-All architectural blueprints, technical specifications, and operating manuals for Saucer are maintained in the following dedicated documents:
+All architectural blueprints, technical specifications, and operating manuals for Saucer are maintained in the dedicated [`docs/`](file:///c:/Users/check/Desktop/saucer/docs) folder:
 
-1. [ARCHITECTURE.md](file:///c:/Users/check/Desktop/saucer/ARCHITECTURE.md) — Comprehensive technical architecture, service topology, and workflow orchestration.
-2. [DATABASE_SCHEMA.md](file:///c:/Users/check/Desktop/saucer/DATABASE_SCHEMA.md) — Relational models, Prisma schema audit, migration strategy, and multi-tenant constraints.
-3. [API_DOCUMENTATION.md](file:///c:/Users/check/Desktop/saucer/API_DOCUMENTATION.md) — Full REST API catalog covering internal routes and the developer Public API v1.
-4. [SOCIAL_INTEGRATIONS.md](file:///c:/Users/check/Desktop/saucer/SOCIAL_INTEGRATIONS.md) — Exhaustive inventory of 38 social providers, OAuth flows, and publishing mechanics.
-5. [AI_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/AI_SYSTEM.md) — Google Gemini architecture, prompt design, structured outputs, and provider abstraction.
-6. [AI_CREDIT_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/AI_CREDIT_SYSTEM.md) — Two-phase reservation/commit credit ledger, concurrency handling, and reset automation.
-7. [SUBSCRIPTION_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/SUBSCRIPTION_SYSTEM.md) — Dodo Payments subscription lifecycle, plan tiers, customer portal, and CASL policy enforcement.
-8. [DEPLOYMENT_GUIDE.md](file:///c:/Users/check/Desktop/saucer/DEPLOYMENT_GUIDE.md) — Hybrid hosting topology (Vercel + Persistent Workers + Supabase).
-9. [ENVIRONMENT_VARIABLES.md](file:///c:/Users/check/Desktop/saucer/ENVIRONMENT_VARIABLES.md) — Complete environment variable catalog with security classifications.
-10. [SECURITY.md](file:///c:/Users/check/Desktop/saucer/SECURITY.md) — Threat modeling, token encryption at rest, SSRF prevention, and tenant boundaries.
-11. [TESTING.md](file:///c:/Users/check/Desktop/saucer/TESTING.md) — QA test framework, unit/integration test setup, and the 17 verified user journeys.
-12. [LICENSING_AND_ATTRIBUTION.md](file:///c:/Users/check/Desktop/saucer/LICENSING_AND_ATTRIBUTION.md) — AGPLv3 compliance analysis and third-party notices.
-13. [IMPLEMENTATION_ROADMAP.md](file:///c:/Users/check/Desktop/saucer/IMPLEMENTATION_ROADMAP.md) — 10-Milestone engineering roadmap and complexity estimates.
-14. [FEATURE_PARITY_MATRIX.md](file:///c:/Users/check/Desktop/saucer/docs/saucer/FEATURE_PARITY_MATRIX.md) — Live feature tracking matrix comparing Postiz with Saucer.
+### 4.1 System Architecture & Technical Specifications
+1. [docs/ARCHITECTURE.md](file:///c:/Users/check/Desktop/saucer/docs/ARCHITECTURE.md) — Comprehensive technical architecture, service topology, and Inngest background workflow orchestration.
+2. [docs/DATABASE_SCHEMA.md](file:///c:/Users/check/Desktop/saucer/docs/DATABASE_SCHEMA.md) — Relational models, Prisma schema, Supabase PostgreSQL 17 migrations, and multi-tenant RLS constraints.
+3. [docs/API_DOCUMENTATION.md](file:///c:/Users/check/Desktop/saucer/docs/API_DOCUMENTATION.md) — Full REST API catalog covering internal routes, billing, social integrations, and publishing endpoints.
+4. [docs/SOCIAL_INTEGRATIONS.md](file:///c:/Users/check/Desktop/saucer/docs/SOCIAL_INTEGRATIONS.md) — Social media provider directory, OAuth 2.0 flows, and publishing mechanics.
+5. [docs/AI_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/docs/AI_SYSTEM.md) — Google Gemini architecture, prompt design, structured outputs, and provider abstraction.
+6. [docs/AI_CREDIT_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/docs/AI_CREDIT_SYSTEM.md) — Two-phase reservation/commit credit ledger, concurrency handling, and reset automation.
+7. [docs/SUBSCRIPTION_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/docs/SUBSCRIPTION_SYSTEM.md) — Dodo Payments subscription lifecycle, plan tiers, and customer portal.
+8. [docs/DEPLOYMENT_GUIDE.md](file:///c:/Users/check/Desktop/saucer/docs/DEPLOYMENT_GUIDE.md) — Production hosting topology (Vercel, Next.js, and Supabase).
+9. [docs/SECURITY.md](file:///c:/Users/check/Desktop/saucer/docs/SECURITY.md) — Threat modeling, AES-256-GCM token encryption at rest, SSRF prevention, and tenant boundaries.
+10. [docs/TESTING.md](file:///c:/Users/check/Desktop/saucer/docs/TESTING.md) — QA test framework, unit/integration test setup, and verified test suites.
+
+### 4.2 Priority 5: Publishing & Scheduling Engine
+11. [docs/PUBLISHING_ENGINE.md](file:///c:/Users/check/Desktop/saucer/docs/PUBLISHING_ENGINE.md) — Centralized multi-platform publishing pipeline, driver capabilities, and state machine.
+12. [docs/SCHEDULING_SYSTEM.md](file:///c:/Users/check/Desktop/saucer/docs/SCHEDULING_SYSTEM.md) — Timezone-aware UTC scheduling, visual calendar, and stale job invalidation.
+13. [docs/BACKGROUND_WORKERS.md](file:///c:/Users/check/Desktop/saucer/docs/BACKGROUND_WORKERS.md) — Inngest serverless workflow engine, durable steps, and reconciliation cron.
+14. [docs/PUBLISHING_RELIABILITY.md](file:///c:/Users/check/Desktop/saucer/docs/PUBLISHING_RELIABILITY.md) — Error classification, exponential backoff, timeout handling, and audit logging.
+15. [docs/MEDIA_PROCESSING.md](file:///c:/Users/check/Desktop/saucer/docs/MEDIA_PROCESSING.md) — Supabase Storage staging, pre-signed URLs, and platform format constraints.
+16. [docs/PRIORITY_5_VERIFICATION_REPORT.md](file:///c:/Users/check/Desktop/saucer/docs/PRIORITY_5_VERIFICATION_REPORT.md) — 20/20 test scenarios verification report.
+
+### 4.3 Reference Codebase & Attribution
+The original Postiz open-source reference files are preserved in [`reference/`](file:///c:/Users/check/Desktop/saucer/reference) for architectural study and design comparison. They are not part of the active production deployment.
 
 ---
 

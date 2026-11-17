@@ -14,6 +14,7 @@
 /build
 
 # Reference and archive archives
+/reference/
 /postiz-reference/
 postiz-app-main.zip
 
