@@ -57,13 +57,13 @@ export class PublishingService {
     post: any;
     executionResults?: ExecutionResult[];
   }> {
-    if (!input.variants || input.variants.length === 0) {
-      throw new Error("At least one social platform variant must be selected.");
-    }
-
     const isImmediate = !!input.publishNow;
     const isScheduled = !isImmediate && !!input.scheduledAt && input.scheduledAt.getTime() > Date.now();
     const initialStatus = isImmediate ? PostStatus.PUBLISHING : isScheduled ? PostStatus.SCHEDULED : PostStatus.DRAFT;
+
+    if ((isImmediate || isScheduled) && (!input.variants || input.variants.length === 0)) {
+      throw new Error("At least one social platform variant must be selected for publishing or scheduling.");
+    }
 
     // 1. Create Post & Variants in a database transaction
     const post = await prisma.$transaction(async (tx) => {

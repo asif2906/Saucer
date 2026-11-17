@@ -329,9 +329,10 @@ export default function VisualCalendarPage() {
           ) : (
             <div className="space-y-2">
               {filteredPosts.map((post) => (
-                <div
+                <Link
                   key={post.id}
-                  className="p-3 rounded-lg border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  href={`/app/create?id=${post.id}`}
+                  className="p-3 rounded-lg border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-violet-500/50 hover:bg-muted/30 transition-all block"
                 >
                   <div className="flex items-center gap-2.5">
                     <PlatformIcon
@@ -350,7 +351,7 @@ export default function VisualCalendarPage() {
                   <Badge variant={post.status === "PUBLISHED" ? "default" : "secondary"}>
                     {post.status}
                   </Badge>
-                </div>
+                </Link>
               ))}
             </div>
           )}

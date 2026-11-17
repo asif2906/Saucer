@@ -240,23 +240,31 @@ export default function PublishingQueuePage() {
                   </p>
                 </div>
 
-                {/* Cancel Action (if in queue) */}
-                {["SCHEDULED", "QUEUED"].includes(post.status) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => handleCancelPost(post.id)}
-                    disabled={actionLoading === post.id}
-                  >
-                    {actionLoading === post.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    )}
-                    <span>Cancel Schedule</span>
+                {/* Actions (Edit / Cancel) */}
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/app/create?id=${post.id}`}>
+                      <Edit3 className="w-3.5 h-3.5 mr-1" />
+                      <span>Edit</span>
+                    </Link>
                   </Button>
-                )}
+                  {["SCHEDULED", "QUEUED", "DRAFT"].includes(post.status) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => handleCancelPost(post.id)}
+                      disabled={actionLoading === post.id}
+                    >
+                      {actionLoading === post.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      <span>Cancel</span>
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Platform Variants Breakdown */}

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PlatformIcon } from "@/components/platform-icon";
 import { PostPreviewCard } from "@/components/post-preview-card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   Loader2,
   RefreshCw,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,8 +37,25 @@ interface SocialAccountOption {
 }
 
 export default function PostComposerPage() {
+  return (
+    <Suspense fallback={
+      <div className="py-12 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
+        <span>Loading Post Composer...</span>
+      </div>
+    }>
+      <PostComposerContent />
+    </Suspense>
+  );
+}
+
+function PostComposerContent() {
+  const searchParams = useSearchParams();
+  const editingPostId = searchParams.get("id") || searchParams.get("postId");
+
   const [accounts, setAccounts] = useState<SocialAccountOption[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingPost, setLoadingPost] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>("master");
   
@@ -55,6 +74,49 @@ export default function PostComposerPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastPublishedPost, setLastPublishedPost] = useState<any>(null);
+
+  // Load post if editing existing draft
+  useEffect(() => {
+    if (!editingPostId) return;
+    async function loadPostToEdit() {
+      try {
+        setLoadingPost(true);
+        const res = await fetch(`/api/publishing/posts/${editingPostId}`);
+        if (res.ok) {
+          const { post } = await res.json();
+          if (post) {
+            setMasterContent(post.content || "");
+            if (post.scheduledAt) {
+              const d = new Date(post.scheduledAt);
+              setScheduledDate(d.toISOString().split("T")[0]);
+              setScheduledTime(d.toTimeString().substring(0, 5));
+            }
+            if (post.timezone) setTimezone(post.timezone);
+            if (post.variants && post.variants.length > 0) {
+              const selectedIds: string[] = [];
+              const channelMap: Record<string, string> = {};
+              post.variants.forEach((v: any) => {
+                if (v.socialAccountId) selectedIds.push(v.socialAccountId);
+                if (v.caption) channelMap[v.socialAccountId] = v.caption;
+                if (v.mediaConfig && v.mediaConfig[0]?.url) {
+                  setMediaUrl(v.mediaConfig[0].url);
+                  setMediaType(v.mediaConfig[0].mediaType || "image");
+                  setHasMedia(true);
+                }
+              });
+              if (selectedIds.length > 0) setSelectedAccountIds(selectedIds);
+              setChannelContent(channelMap);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load post for editing:", err);
+      } finally {
+        setLoadingPost(false);
+      }
+    }
+    loadPostToEdit();
+  }, [editingPostId]);
 
   // Load connected accounts
   useEffect(() => {
@@ -153,8 +215,11 @@ export default function PostComposerPage() {
 
     try {
       setIsSubmitting(true);
-      const res = await fetch("/api/publishing/posts", {
-        method: "POST",
+      const method = editingPostId ? "PATCH" : "POST";
+      const endpoint = editingPostId ? `/api/publishing/posts/${editingPostId}` : "/api/publishing/posts";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: masterContent,
@@ -168,8 +233,30 @@ export default function PostComposerPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save draft.");
 
-      toast.success("Draft saved successfully to workspace!");
+      toast.success(editingPostId ? "Draft updated successfully!" : "Draft saved successfully to workspace!");
       setLastPublishedPost(data.post);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!editingPostId) return;
+    if (!confirm("Are you sure you want to delete this draft post?")) return;
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch(`/api/publishing/posts/${editingPostId}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete post.");
+
+      toast.success("Post deleted successfully.");
+      window.location.href = "/app/queue";
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -192,8 +279,11 @@ export default function PostComposerPage() {
         return;
       }
 
-      const res = await fetch("/api/publishing/posts", {
-        method: "POST",
+      const method = editingPostId ? "PATCH" : "POST";
+      const endpoint = editingPostId ? `/api/publishing/posts/${editingPostId}` : "/api/publishing/posts";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: masterContent,
@@ -261,18 +351,37 @@ export default function PostComposerPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-            Centralized Post Composer
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              {editingPostId ? "Edit Social Post" : "Centralized Post Composer"}
+            </h1>
+            {editingPostId && (
+              <Badge variant="secondary" className="text-xs">
+                Editing #{editingPostId.slice(-6)}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Create once, tailor individually, and schedule across multiple platforms simultaneously.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
+          {editingPostId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={handleDeleteDraft}
+              disabled={isSubmitting}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1" />
+              <span>Delete</span>
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={isSubmitting}>
             <Save className="w-3.5 h-3.5 mr-1" />
-            <span>Save Draft</span>
+            <span>{editingPostId ? "Update Draft" : "Save Draft"}</span>
           </Button>
           <Button variant="gradient" size="sm" onClick={handleSchedule} disabled={isSubmitting}>
             <Calendar className="w-3.5 h-3.5 mr-1" />

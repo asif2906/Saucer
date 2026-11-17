@@ -22,9 +22,16 @@ export async function POST(req: NextRequest) {
 
     const workspaceId = reqWorkspaceId || auth.context.workspaceId;
 
-    if (!content || !variants || variants.length === 0) {
+    if (!content) {
       return NextResponse.json(
-        { error: "Content and at least one target channel variant are required." },
+        { error: "Post content is required." },
+        { status: 400 }
+      );
+    }
+
+    if ((publishNow || scheduledAt) && (!variants || variants.length === 0)) {
+      return NextResponse.json(
+        { error: "At least one target social channel is required for publishing or scheduling." },
         { status: 400 }
       );
     }
