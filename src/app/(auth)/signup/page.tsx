@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -26,6 +26,13 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      if (!isSupabaseConfigured()) {
+        const msg = "Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY) are missing in project settings.";
+        setErrorMsg(msg);
+        toast.error(msg);
+        return;
+      }
+
       const supabase = createClient();
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -57,7 +64,9 @@ export default function SignupPage() {
         router.refresh();
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Registration failed. Please try again.");
+      const msg = err.message || "Registration failed. Please try again.";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
