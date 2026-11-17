@@ -16,13 +16,16 @@ interface PostPreviewCardProps {
 export function PostPreviewCard({
   platform,
   content,
-  authorName = "Acme Orbit",
-  authorHandle = "acmeorbit",
+  authorName,
+  authorHandle,
   authorAvatar,
   mediaUrls = [],
   scheduledTime,
 }: PostPreviewCardProps) {
   const p = platform.toLowerCase();
+  const effectiveName = authorName || "Your Account";
+  const effectiveHandle = authorHandle || "yourbrand";
+  const initials = effectiveName.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "YA";
 
   // X (Twitter) Preview
   if (p === "x" || p === "twitter") {
@@ -39,14 +42,14 @@ export function PostPreviewCard({
         <div className="flex gap-3">
           <Avatar className="w-10 h-10 shrink-0">
             <AvatarImage src={authorAvatar} />
-            <AvatarFallback>AO</AvatarFallback>
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 leading-none">
               <span className="font-bold text-foreground hover:underline cursor-pointer">
-                {authorName}
+                {effectiveName}
               </span>
-              <span className="text-muted-foreground text-xs">@{authorHandle}</span>
+              <span className="text-muted-foreground text-xs">@{effectiveHandle}</span>
               <span className="text-muted-foreground text-xs">· Just now</span>
             </div>
 
@@ -96,10 +99,10 @@ export function PostPreviewCard({
           <div className="flex items-center gap-2.5">
             <Avatar className="w-10 h-10">
               <AvatarImage src={authorAvatar} />
-              <AvatarFallback>AO</AvatarFallback>
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-semibold text-foreground leading-tight">{authorName}</div>
+              <div className="font-semibold text-foreground leading-tight">{effectiveName}</div>
               <div className="text-xs text-muted-foreground">Social Growth Leader • 1st</div>
               <div className="text-[10px] text-muted-foreground">Just now • 🌐</div>
             </div>
@@ -150,9 +153,9 @@ export function PostPreviewCard({
         <div className="flex items-center gap-2">
           <Avatar className="w-7 h-7 ring-2 ring-pink-500/30">
             <AvatarImage src={authorAvatar} />
-            <AvatarFallback>AO</AvatarFallback>
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
-          <span className="font-semibold text-xs text-foreground">{authorHandle}</span>
+          <span className="font-semibold text-xs text-foreground">{effectiveHandle}</span>
         </div>
         <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
       </div>
@@ -171,7 +174,7 @@ export function PostPreviewCard({
       </div>
 
       <div className="text-xs">
-        <span className="font-bold mr-1.5">{authorHandle}</span>
+        <span className="font-bold mr-1.5">{effectiveHandle}</span>
         <span className="text-foreground whitespace-pre-wrap break-words">
           {content || "Captivating caption with #hashtags and emojis..."}
         </span>

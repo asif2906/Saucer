@@ -126,7 +126,7 @@ export default function SignupPage() {
               <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="name"
-                placeholder="Sarah Connor"
+                placeholder="Your full name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -143,7 +143,7 @@ export default function SignupPage() {
               <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="org"
-                placeholder="Acme Media Co."
+                placeholder="Your company or brand"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 required
@@ -161,7 +161,7 @@ export default function SignupPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="sarah@acme.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -12,11 +15,16 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json(
         { error: "Unauthorized. Authentication is required." },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
       );
     }
 
-    // Fetch Profile
+    // Fetch Profile strictly mapped to this verified Supabase user ID
     const { data: profile, error: profileErr } = await supabase
       .from("Profile")
       .select("id, supabaseUserId, email, fullName, avatarUrl, timezone")
@@ -40,7 +48,7 @@ export async function GET(req: NextRequest) {
         ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
         : effectiveFullName.slice(0, 2).toUpperCase();
 
-    // Fetch Organization through OrganizationMember
+    // Fetch Organization strictly through OrganizationMember referencing profileId
     let organization: any = null;
     let orgRole = "OWNER";
     let workspaces: any[] = [];
@@ -62,7 +70,7 @@ export async function GET(req: NextRequest) {
         orgRole = primaryMember.role || "OWNER";
 
         if (organization?.id) {
-          // Fetch Workspaces
+          // Fetch Workspaces strictly belonging to this organization
           const { data: wsData } = await supabase
             .from("Workspace")
             .select("id, name, slug, isDefault, createdAt")
@@ -73,7 +81,7 @@ export async function GET(req: NextRequest) {
             workspaces = wsData;
           }
 
-          // Fetch Credits
+          // Fetch AI Credits for this organization
           const { data: crData } = await supabase
             .from("AiCreditBalance")
             .select("monthlyAllowance, monthlyUsed, reservedCredits, purchasedCredits")
@@ -103,34 +111,46 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: profile?.id || user.id,
-        supabaseUserId: user.id,
-        email: user.email,
-        fullName: effectiveFullName,
-        initials,
-        avatarUrl: profile?.avatarUrl || null,
-        timezone: profile?.timezone || "UTC",
+    return NextResponse.json(
+      {
+        success: true,
+        user: {
+          id: profile?.id || user.id,
+          supabaseUserId: user.id,
+          email: user.email,
+          fullName: effectiveFullName,
+          initials,
+          avatarUrl: profile?.avatarUrl || null,
+          timezone: profile?.timezone || "UTC",
+        },
+        organization: organization
+          ? {
+              id: organization.id,
+              name: organization.name,
+              slug: organization.slug,
+              role: orgRole,
+            }
+          : null,
+        workspaces,
+        currentWorkspace: workspaces[0] || null,
+        credits,
       },
-      organization: organization
-        ? {
-            id: organization.id,
-            name: organization.name,
-            slug: organization.slug,
-            role: orgRole,
-          }
-        : null,
-      workspaces,
-      currentWorkspace: workspaces[0] || null,
-      credits,
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("[/api/me] Internal Error:", err);
     return NextResponse.json(
       { error: "Internal server error", message: err.message },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
     );
   }
 }
@@ -144,7 +164,15 @@ export async function PATCH(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
+      );
     }
 
     const body = await req.json();
@@ -170,18 +198,35 @@ export async function PATCH(req: NextRequest) {
     if (updateErr) {
       return NextResponse.json(
         { error: "Failed to update profile", message: updateErr.message },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+          },
+        }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      profile: updatedProfile,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        profile: updatedProfile,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json(
       { error: "Internal error", message: err.message },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
     );
   }
 }

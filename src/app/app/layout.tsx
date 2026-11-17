@@ -1,35 +1,14 @@
-"use client";
+import React from "react";
+import { AppShellClient } from "./app-shell-client";
 
-import React, { useState } from "react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { AppHeader } from "@/components/app-header";
-import { UserProvider } from "@/contexts/user-context";
+// Prevent static HTML generation or CDN edge-caching across user sessions
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  return (
-    <UserProvider>
-      <div className="flex min-h-screen bg-background">
-        {/* Sidebar */}
-        <AppSidebar
-          isOpen={mobileSidebarOpen}
-          onClose={() => setMobileSidebarOpen(false)}
-        />
-
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <AppHeader onToggleSidebar={() => setMobileSidebarOpen(true)} />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
-            {children}
-          </main>
-        </div>
-      </div>
-    </UserProvider>
-  );
+  return <AppShellClient>{children}</AppShellClient>;
 }
-

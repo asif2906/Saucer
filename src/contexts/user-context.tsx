@@ -65,7 +65,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       setError(null);
 
-      const res = await fetch("/api/me");
+      const res = await fetch("/api/me", {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
       if (res.status === 401) {
         // Not logged in
         setUser(null);
